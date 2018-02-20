@@ -8,9 +8,29 @@ classdef TwiliteCalibration < mlswisstrace.AbstractTwilite
  	
     
 	methods 
-        
-        %%
-        
+ 		function this = TwiliteCalibration(varargin)
+ 			%% TWILITECALIBRATION
+       
+ 			this = this@mlswisstrace.AbstractTwilite(varargin{:});            
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            addParameter(ip, 'isotope', '18F', @ischar);
+            parse(ip, varargin{:});                      
+            this.isotope_ = ip.Results.isotope;
+ 		end
+    end 
+    
+    %% PROTECTED
+    
+    properties (Access = protected)
+        baselineRange_ % time index
+        samplingRange_ % time index
+    end
+    
+    %% HIDDEN    
+    %  @deprecated
+    
+    methods (Hidden)
         function [m,s] = calibrationBaseline(this)
             %% CALIBRATIONBASELINE returns specific activity
             %  @returns m, mean
@@ -42,29 +62,7 @@ classdef TwiliteCalibration < mlswisstrace.AbstractTwilite
             m      = mean(sa);
             s      = std(sa);
         end
-        
- 		function this = TwiliteCalibration(varargin)
- 			%% TWILITECALIBRATION
-       
- 			this = this@mlswisstrace.AbstractTwilite(varargin{:});
-            
-            %this = this.readtable;
-            %this = this.updateTimingData;
-            %this.counts = this.tableTwilite2counts;
-            %assert(length(this.counts) == length(this.taus), 'mlswisstrace:arraySizeMismatch', 'Twilite.ctor');
-            %this = this.findCalibrationIndices;
- 		end
-    end 
-    
-    %% PROTECTED
-    
-    properties (Access = protected)
-        baselineRange_ % time index
-        samplingRange_ % time index
-    end
-    
-    methods (Access = protected)
-        function this = findCalibrationIndices(this)
+        function this  = findCalibrationIndices(this)
             minCnts = min(this.counts);
             cappedCnts = [minCnts*ones(1,5) this.counts minCnts*ones(1,5)];
             [~,tup]   = max(diff(smooth(cappedCnts))); % smoothing range = 5

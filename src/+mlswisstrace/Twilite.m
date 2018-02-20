@@ -9,26 +9,16 @@ classdef Twilite < mlswisstrace.AbstractTwilite
  	%% It was developed on Matlab 9.1.0.441655 (R2016b) for MACI64.  Copyright 2017 John Joowon Lee.
     
     methods 
-        
-        %%       
-        
  		function this = Twilite(varargin)
  			%% TWILITE
             
- 			this = this@mlswisstrace.AbstractTwilite(varargin{:});
-            
-            %this = this.updateTimingData;
-            %this.counts = this.tableTwilite2counts;
-            %assert(length(this.counts) == length(this.taus), 'mlswisstrace:arraySizeMismatch', 'Twilite.ctor');            
-            %this.invEfficiency_ = ip.Results.invEfficiency;          
-            %this.specificActivity = this.invEfficiency*(this.counts - this.countsBaseline)./this.taus./this.visibleVolume;
+ 			this = this@mlswisstrace.AbstractTwilite(varargin{:});            
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            addParameter(ip, 'isotope', '15O', @ischar);
+            parse(ip, varargin{:});                      
+            this.isotope_ = ip.Results.isotope;            
         end        
-    end
-    
-    %% PROTECTED
-    
-    properties (Access = protected)
-        twiliteCalibration_
     end
 
 	%  Created with Newcl by John J. Lee after newfcn by Frank Gonzalez-Morphy

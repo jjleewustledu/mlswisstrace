@@ -5,30 +5,38 @@ classdef AbstractTwilite < mlpet.AbstractAifData
  	%  was created 20-Jul-2017 00:21:47 by jjlee,
  	%  last modified $LastChangedDate$ and placed into repository /Users/jjlee/MATLAB-Drive/mlpet/src/+mlpet.
  	%% It was developed on Matlab 9.2.0.538062 (R2017a) for MACI64.  Copyright 2017 John Joowon Lee.
- 	
+ 		
+    properties        
+        pumpRate = 5 % mL/min    
+        
+        fqCrv = fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'HYGLY28_VISIT_2_23sep2016_D1.crv');
+        fqCrvCal = fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'HYGLY28_VISIT_2_23sep2016_twilite_cal_D1.crv');
+    end
+    
 	properties (Dependent)
-        channel1
-        channel2
-        coincidence % counts/s
-        counts2specificActivity
-        tableTwilite
+        channel1 % delimited by datetime0/F
+        channel2 % delimited by datetime0/F
+        coincidence % counts/s, delimited by datetime0/F
+        counts2specificActivity % scalar, TBD by a TwiliteBuilder
+        invEfficiency % outer-most efficiency for s.a. determined by cross-calibration, synonymous with counts2SpecificActivity
+        tableTwilite % all stored data
     end
 
-	methods 
+	methods
         
         %% GET 
         
         function c    = get.channel1(this)
-            c = this.tableTwilite_.channel1( ...
-                this.datetimeSelection(this.datetimeOfTableTwilite));
+            c = ensureRowVector(this.tableTwilite_.channel1);
+            c = c(this.isValidTableRow);
         end
         function c    = get.channel2(this)
-            c = this.tableTwilite_.channel2( ...
-                this.datetimeSelection(this.datetimeOfTableTwilite));
+            c = ensureRowVector(this.tableTwilite_.channel2);
+            c = c(this.isValidTableRow);
         end
         function c    = get.coincidence(this)
-            c = this.tableTwilite_.coincidence( ...
-                this.datetimeSelection(this.datetimeOfTableTwilite));
+            c = ensureRowVector(this.tableTwilite_.coincidence);
+            c = c(this.isValidTableRow);
         end
         function g    = get.counts2specificActivity(this)
             g = this.counts2specificActivity_;
@@ -38,46 +46,75 @@ classdef AbstractTwilite < mlpet.AbstractAifData
             this.counts2specificActivity_ = s;
             this = this.updateActivities;
         end
+        function g    = get.invEfficiency(this)
+            g = this.counts2specificActivity;
+        end
+        function this = set.invEfficiency(this, s)
+            this.counts2specificActivity = s;
+        end
         function g    = get.tableTwilite(this)
             g = this.tableTwilite_;
         end
                 
-        %%         
-        
-        function bols = boluses(this)
-            bols = this.timeSeries_.boluses;
+        %% 
+             
+        function this = buildCalibrated(this)
+            bldr = mlswisstrace.TwiliteBuilder( ...
+                'fqfilename', this.fqCrv, ...
+                'fqfilenameCalibrator', this.fqCrvCal, ...
+                'sessionData', this.sessionData, ...
+                'manualData', this.manualData_, ...
+                'datetime0', this.doseAdminDatetime);            
+            bldr = bldr.buildCalibrated;
+            this = bldr.product;
         end
-        function this = crossCalibrate(this, varargin)
-        end       
-        function dt_  = datetime(this, varargin)
-            dt_ = this.datetimeOfTableTwilite;
-            dt_ = dt_(this.datetimeSelection(dt_));
-            if (~isempty(varargin))
-                dt_ = dt_(varargin{:});
-            end
+        function dt_  = datetime(this)
+            %% DATETIME excludes inappropriate data using this.isValidTableRow.
+            
+            dt_ = this.tableTwilite2datetime;            
+            dt_ = dt_(this.isValidTableRow);
         end
         function        plot(this, varargin)
             figure;
-            plot(datetime(this), this.coincidence, varargin{:});
-            xlabel('datetime(this)');
-            ylabel('this.coincidence');
-            title(['Twilite:  ' this.fqfilename], 'Interpreter', 'none');
+            plot(this.datetime, this.channel1, ...
+                 this.datetime, this.channel2, ...
+                 this.datetime, this.coincidence, varargin{:});
+            xlabel('this.datetime');
+            ylabel('channel1, channel2, coincidence');
+            title(sprintf('AbstractTwilite.plot:\n%s', this.fqfilename), 'Interpreter', 'none');
         end
-        function save(~)
+        function        plotCounts(this, varargin)  
+            figure;
+            plot(this.datetime, this.counts, varargin{:});
+            xlabel(sprintf('datetime from %s', this.datetime0));
+            ylabel('counts');
+            title(sprintf('AbstractTwilite.plotCounts:  time0->%g, timeF->%g', this.time0, this.timeF), ...
+                'Interpreter', 'none');
+        end
+        function        plotSpecificActivity(this, varargin)
+            figure;
+            plot(this.datetime, this.specificActivity, varargin{:});
+            xlabel(sprintf('datetime from %s', this.datetime0));
+            ylabel('specificActivity');
+            title(sprintf( ...
+                'AbstractTwilite.plotSpecificActivity:  time0->%g, timeF->%g, Eff^{-1}->%g', ...
+                this.time0, this.timeF, this.invEfficiency), ...
+                'Interpreter', 'none');
+        end
+        function        save(~)
             error('mlswisstrace:notImplemented', 'Twilite.save');
         end
         function v    = visibleVolume(this)
             v = this.arterialCatheterVisibleVolume*ones(size(this.times)); % empirically measured on Twilite
         end
- 	end 
+ 	end     
     
     %% PROTECTED
     
     properties (Access = protected)
         counts2specificActivity_ = nan
-        datetimeF_
         tableTwilite_
-        timeSeries_
+        timingData_
     end
     
     methods (Access = protected)
@@ -97,18 +134,14 @@ classdef AbstractTwilite < mlpet.AbstractAifData
             end
             error('mpet:unsupportedParamValue', 'AbstractTwilite:arterialCatheterVisibleVolume');
         end
-        function dt_  = datetimeOfTableTwilite(this)
-            tt = this.tableTwilite_;
-            dt_ = datetime( ...
-                tt.year, tt.month, tt.day, tt.hour, tt.min, tt.sec, ...
-                'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE);
-        end
-        function tf = datetimeSelection(this, dt_)
-            if (isempty(this.datetimeF_))
-                tf = dt_ >= this.datetime0;
+        function tf   = isValidTableRow(this)
+            tt2dt = this.tableTwilite2datetime;
+            if (isempty(this.timingData_) || isempty(this.timingData_.datetimeF))
+                tf = this.datetime0 >= tt2dt;
                 return
             end
-            tf = dt_ >= this.datetime0 & dt_ <= this.datetimeF_;
+            tf = this.timingData_.datetime0 - seconds(1) <= tt2dt & ...
+                 tt2dt <= this.timingData_.datetimeF;
         end
         function this = readtable(this, varargin)
             ip = inputParser;
@@ -136,35 +169,63 @@ classdef AbstractTwilite < mlpet.AbstractAifData
             
             this.isPlasma = false;                   
         end
+        function dt_  = tableTwilite2datetime(this)
+            tt = this.tableTwilite_;
+            dt_ = datetime( ...
+                tt.year, tt.month, tt.day, tt.hour, tt.min, tt.sec, ...
+                'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE);
+            dt_ = ensureRowVector(dt_);
+        end
         function s    = tableTwilite2times(this)
-            d = this.datetime;
-            s = seconds(d - d(1));
-            s = ensureRowVector(s);
+            dt_ = this.tableTwilite2datetime;
+            s = seconds(dt_ - dt_(1));
+        end
+        function c    = tableTwilite2coincidence(this)
+            c = ensureRowVector(this.tableTwilite_.coincidence);
         end
         function c    = tableTwilite2counts(this)
             c = ensureRowVector(this.tableTwilite_.coincidence);
         end
-        function this = updateTimingData(this)
-            td = this.timingData_;
-            td.times = this.tableTwilite2times;
-            this.timingData_ = td;
+        function c    = tableTwilite2specificActivity(this)
+            c = this.counts2specificActivity * this.tableTwilite2counts;
         end
         function this = updateActivities(this)
-            bol = this.timeSeries_.findBolus(this.doseAdminDatetime);
-            this.datetimeF_ = bol.datetimeF;
-            this.counts_ = bol;
-%            this.specificActivity_ = this.counts2specificActivity_*this.counts_;
+            %% UPDATEACTIVITIES progressively shrinks this.timingData_ by imposing time limits from
+            %  this.doseAdminDatetime.
+            
+            this = this.updateTimingData;
+            this.decayCorrection_ = mlpet.DecayCorrection.factoryFor(this);
+            this.counts_ = this.timingData_.activity;
+            this.specificActivity_ = this.counts2specificActivity_*this.counts_;
+        end
+        function this = updateTimingData(this)
+            this.timingData_ = this.timingData_.findBolusFrom(this.doseAdminDatetime);
         end
         
  		function this = AbstractTwilite(varargin)
  			%% ABSTRACTTWILITE
+            %  @param named doseAdminDatetime refers to the true time for the selected tracer.
 
  			this = this@mlpet.AbstractAifData(varargin{:});
+            
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            addParameter(ip, 'dt', 1,                 @isnumeric);
+            addParameter(ip, 'doseAdminDatetime', [], @isdatetime);
+            addParameter(ip, 'aifTimeShift', 0,       @isnumeric); % @deprecated
+            parse(ip, varargin{:});            
             this = this.readtable;
-            this = this.updateTimingData;
-            this.timeSeries_ = mlpet.TimeSeries(this.coincidence, this.datetime, 'dt', this.dt);
+            this.timingData_ = mlpet.MultiBolusData( ...
+                'activity', this.tableTwilite2coincidence, ...
+                'times', this.tableTwilite2datetime, ...
+                'dt', ip.Results.dt);
+            this.doseAdminDatetime_ = ip.Results.doseAdminDatetime;
+            this.timingData_.datetime0 = ip.Results.doseAdminDatetime; % must be separated from mlpetMultiBolusData ctor
+            %this = this.shiftTimes(ip.Results.aifTimeShift); % clobbers this.timingData_.activity
             
             this = this.updateActivities;
+            this.isDecayCorrected = false;
+            this.isPlasma = false;
  		end
     end
 

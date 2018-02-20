@@ -10,6 +10,7 @@ classdef TwiliteBuilder < mlpet.AbstractAifBuilder
         datetime0
         fqfilename
         fqfilenameCalibrator
+        counts2specificActivity
  	end
 
 	methods 
@@ -24,7 +25,10 @@ classdef TwiliteBuilder < mlpet.AbstractAifBuilder
         end
         function g = get.fqfilenameCalibrator(this)
             g = this.fqfilenameCalibrator_;
-        end        
+        end     
+        function g = get.counts2specificActivity(this)
+            g = this.product_.counts2specificActivity;
+        end
         
         %%
 		  
@@ -32,45 +36,45 @@ classdef TwiliteBuilder < mlpet.AbstractAifBuilder
             this.product_ = mlswisstrace.TwiliteCalibration( ...
                 'fqfilename', this.fqfilenameCalibrator, ...
                 'sessionData', this.sessionData_, ...
-                'doseAdminDatetime', this.datetime0, ...
-                'isotope', '15O');
+                'manualData', this.manualData_, ...
+                'doseAdminDatetime', this.manualData_.mMRDatetime, ...
+                'isotope', '18F');
+            this.calibrator_ = this.product_;
         end
         function this = buildNative(this)
             this.product_ = mlswisstrace.Twilite( ...
                 'fqfilename', this.fqfilename, ...
                 'sessionData', this.sessionData_, ...
-                'scannerData', this.scannerData_, ...
                 'manualData', this.manualData_, ...
                 'doseAdminDatetime', this.datetime0, ...
                 'isotope', '15O');
         end
         function this = buildCalibrated(this)
             this = this.buildCalibrator;
-            cal  = this.product;
-            cal  = cal.correctedActivities(0, this.datetime0);
-            cal.counts2specificActivity = ...
-                this.manualData_.phantomSpecificActivity('tzero', this.datetime0) / ...
-                mean(cal.boluses(1).counts(this.bolusTimesIndices(cal)));
+            this.calibrator_ = this.calibrator_.correctedActivities(this.manualData_.mMRDatetime);
+            % TODO:  refactor psa manipulations into an abstraction.
+            psa = this.calibrator_.decayCorrection.correctedActivities( ...
+                  this.manualData_.phantomSpecificActivity, this.manualData_.mMRDatetime);
+            this.calibrator_.counts2specificActivity = psa(1) / mean(this.calibrator_.counts(3:end-3));
             
             this = this.buildNative;
-            nat  = this.product;
-            nat.counts2specificActivity = cal.counts2specificActivity;            
-            this.product_ = nat;
+            this.product_.counts2specificActivity = this.calibrator_.counts2specificActivity;
+            fprintf('counts2specificActivity->%g\n', this.product_.counts2specificActivity);
         end
+        
  		function this = TwiliteBuilder(varargin)
  			%% TWILITEBUILDER 	
-            %  @param fqfilename
+            %  @param named fqfilename for target Twilite AIF.
+            %  @param named datetime0  for target Twilite AIF.
+            %  @param named fqfilenameCalibrator for Twilite calibration AIF.            
             
-            this = this@mlpet.AbstractAifBuilder(varargin{:});
-            
+            this = this@mlpet.AbstractAifBuilder(varargin{:});            
             ip = inputParser;
             ip.KeepUnmatched = true;
             addParameter(ip, 'fqfilename',           @(x) ischar(x) && strcmp(x(end-3:end), '.crv'));
             addParameter(ip, 'fqfilenameCalibrator', @(x) ischar(x) && strcmp(x(end-3:end), '.crv'));
-            addParameter(ip, 'datetime0', this.manualData_.mMRDatetime, ...
-                                                     @isdatetime);
-            parse(ip, varargin{:});
-            
+            addParameter(ip, 'datetime0', NaT,       @isdatetime);
+            parse(ip, varargin{:});            
             this.fqfilename_           = ip.Results.fqfilename;
             this.fqfilenameCalibrator_ = ip.Results.fqfilenameCalibrator;
             this.datetime0_            = ip.Results.datetime0;
@@ -83,12 +87,6 @@ classdef TwiliteBuilder < mlpet.AbstractAifBuilder
         datetime0_
         fqfilename_
         fqfilenameCalibrator_
-    end
-    
-    methods (Access = protected)
-        function t = bolusTimesIndices(~, twil)
-            t = 1:length(twil.boluses(1).times);
-        end
     end
     
 	%  Created with Newcl by John J. Lee after newfcn by Frank Gonzalez-Morphy

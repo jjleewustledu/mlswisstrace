@@ -10,20 +10,19 @@ classdef Test_Twilite < matlab.unittest.TestCase
  	%  by jjlee,
  	%  last modified $LastChangedDate$
  	%  and checked into repository /Users/jjlee/MATLAB-Drive/mlswisstrace/test/+mlswisstrace_unittest.
- 	%% It was developed on Matlab 9.1.0.441655 (R2016b) for MACI64.
- 	
+ 	%% It was developed on Matlab 9.1.0.441655 (R2016b) for MACI64. 	
 
 	properties
-        doseAdminDatetimeOC = datetime(2016,9,23,10,49-2,57-24, 'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE);
-        doseAdminDatetimeOO = datetime(2016,9,23,11,15-2,29-24, 'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE);
-        doseAdminDatetimeHO = datetime(2016,9,23,11,32-2,25-24, 'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE);
+        doseAdminDatetimeOC = datetime(2016,9,23,10,47,33, 'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE);
+        doseAdminDatetimeOO = datetime(2016,9,23,11,13,5,  'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE);
+        doseAdminDatetimeHO = datetime(2016,9,23,11,30,1,  'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE);
         
-        fqfn = '/data/nil-bluearc/raichle/PPGdata/jjlee2/Documents/HYGLY28_VISIT_2_23sep2016_D1.crv'
-        fqfnman = '/data/nil-bluearc/raichle/PPGdata/jjlee2/Documents/CCIRRadMeasurements 2016sep23.xlsx'
+        fqfn = '/Users/jjlee/Documents/private/HYGLY28_VISIT_2_23sep2016_D1.crv'
+        fqfnman = '/Users/jjlee/Documents/private/CCIRRadMeasurements 2016sep23.xlsx'
         mand
  		registry
         sessd
-        sessp = '/data/nil-bluearc/raichle/PPGdata/jjlee2/HYGLY28/V2'
+        sessp = '/data/nil-bluearc/raichle/PPGdata/jjlee2/HYGLY28'
  		testObj
         vnumber = 2
         tracer = 'HO'
@@ -38,26 +37,41 @@ classdef Test_Twilite < matlab.unittest.TestCase
         end
         function test_ctor(this)
             this.verifyClass(this.testObj, 'mlswisstrace.Twilite');
-            this.verifyEqual(this.testObj.datetime0, this.doseAdminDatetimeHO);
-            this.verifyEqual(this.testObj.doseAdminDatetime, this.doseAdminDatetimeHO);
+            %this.verifyEqual(this.testObj.datetime0, this.doseAdminDatetimeHO);
+            %this.verifyEqual(this.testObj.doseAdminDatetime, this.doseAdminDatetimeHO);
             this.verifyEqual(this.testObj.dt, 1);
             this.verifyEqual(this.testObj.index0, 1);
-            this.verifyEqual(this.testObj.indexF, 7715);
+            this.verifyEqual(this.testObj.indexF, 358);
             this.verifyEqual(this.testObj.time0, 0);
-            this.verifyEqual(this.testObj.timeF, 7714);
-            this.verifyEqual(this.testObj.timeDuration, 7714);
+            this.verifyEqual(this.testObj.timeF, 357);
+            this.verifyEqual(this.testObj.timeDuration, 357);
             this.verifyEqual(this.testObj.times(1), 0);
-            this.verifyEqual(this.testObj.times(end), 7714);
+            this.verifyEqual(this.testObj.times(end), 357);
             this.verifyEqual(this.testObj.timeMidpoints(1),   0.5, 'RelTol', 1e-14);
-            this.verifyEqual(this.testObj.timeMidpoints(end), 7714.5);
+            this.verifyEqual(this.testObj.timeMidpoints(end), 357.5);
             this.verifyEqual(this.testObj.taus(1),   1, 'RelTol', 1e-14);
             this.verifyEqual(this.testObj.taus(end), 1);
             this.verifyEqual(this.testObj.isotope, '15O');
             this.verifyEqual(this.testObj.W, nan);
             this.verifyEqual(size(this.testObj.tableTwilite), [12392 9]);
+            this.verifyEqual(size(this.testObj.channel1), [1 358]);
+            this.verifyEqual(size(this.testObj.channel2), [1 358]);
+            this.verifyEqual(size(this.testObj.coincidence), [1 358]);
+            this.verifyEqual(size(this.testObj.times), [1 358]);
+            this.verifyEqual(size(this.testObj.timeMidpoints), [1 358]);
+            this.verifyEqual(size(this.testObj.taus), [1 358]);
+            this.verifyEqual(size(this.testObj.counts), [1 358]);
+            this.verifyEqual(size(this.testObj.activity), [1 358]);
+            this.verifyEqual(size(this.testObj.specificDecays), [1 358]);
+            this.verifyEqual(size(this.testObj.specificActivity), [1 358]);
         end
         function test_plot(this)
             plot(this.testObj, '.');
+            plotCounts(this.testObj, '.');
+            this.testObj.counts2specificActivity = 0.46;
+            plotSpecificActivity(this.testObj, '.');
+        end
+        function test_counts(this)
         end
         function test_specificActivity(this)
         end
