@@ -210,17 +210,17 @@ classdef AbstractTwilite < mlpet.AbstractAifData
             
             ip = inputParser;
             ip.KeepUnmatched = true;
-            addParameter(ip, 'dt', 1,                 @isnumeric);
-            addParameter(ip, 'doseAdminDatetime', [], @isdatetime);
-            addParameter(ip, 'aifTimeShift', 0,       @isnumeric); % @deprecated
+            addParameter(ip, 'dt', 1,             @isnumeric);
+            addParameter(ip, 'doseAdminDatetime', @isdatetime);
+            addParameter(ip, 'aifTimeShift', 0,   @isnumeric); % @deprecated
             parse(ip, varargin{:});            
             this = this.readtable;
             this.timingData_ = mlpet.MultiBolusData( ...
                 'activity', this.tableTwilite2coincidence, ...
                 'times', this.tableTwilite2datetime, ...
                 'dt', ip.Results.dt);
-            this.doseAdminDatetime_ = ip.Results.doseAdminDatetime;                        
             this.timingData_.datetime0 = ip.Results.doseAdminDatetime; % must be separated from mlpetMultiBolusData ctor
+            %this = this.shiftTimes(ip.Results.aifTimeShift); % clobbers this.timingData_.activity
             
             this = this.updateActivities;
             this.isDecayCorrected = false;
