@@ -43,8 +43,8 @@ classdef AbstractTwilite < mlpet.AbstractAifData
         end
         function this = set.counts2specificActivity(this, s)
             assert(isnumeric(s));
-            this.counts2specificActivity_ = s;
-            this = this.updateActivities;
+            this.counts2specificActivity_ = s;            
+            this.specificActivity_ = this.counts2specificActivity_*this.counts_;
         end
         function g    = get.invEfficiency(this)
             g = this.counts2specificActivity;
@@ -140,7 +140,7 @@ classdef AbstractTwilite < mlpet.AbstractAifData
                 tf = this.datetime0 >= tt2dt;
                 return
             end
-            tf = this.timingData_.datetime0 - seconds(1) <= tt2dt & ...
+            tf = this.timingData_.datetime0 <= tt2dt & ...
                  tt2dt <= this.timingData_.datetimeF;
         end
         function this = readtable(this, varargin)
@@ -194,7 +194,7 @@ classdef AbstractTwilite < mlpet.AbstractAifData
             %  this.doseAdminDatetime.
             
             this = this.updateTimingData;
-            this.decayCorrection_ = mlpet.DecayCorrection.factoryFor(this);
+            %this.decayCorrection_ = mlpet.DecayCorrection.factoryFor(this);
             this.counts_ = this.timingData_.activity;
             this.specificActivity_ = this.counts2specificActivity_*this.counts_;
         end
@@ -218,12 +218,11 @@ classdef AbstractTwilite < mlpet.AbstractAifData
             this.timingData_ = mlpet.MultiBolusData( ...
                 'activity', this.tableTwilite2coincidence, ...
                 'times', this.tableTwilite2datetime, ...
-                'dt', ip.Results.dt);
-            this.doseAdminDatetime_ = ip.Results.doseAdminDatetime;                        
-            this.timingData_.datetime0 = ip.Results.doseAdminDatetime; % must be separated from mlpetMultiBolusData ctor
+                'dt', ip.Results.dt);                    
+            %this.timingData_.datetime0 = ip.Results.doseAdminDatetime; % must be separated from mlpetMultiBolusData ctor
             
             this = this.updateActivities;
-            this.isDecayCorrected = false;
+            this.isDecayCorrected_ = false;
             this.isPlasma = false;
  		end
     end

@@ -37,33 +37,33 @@ classdef Test_Twilite < matlab.unittest.TestCase
         end
         function test_ctor(this)
             this.verifyClass(this.testObj, 'mlswisstrace.Twilite');
-            %this.verifyEqual(this.testObj.datetime0, this.doseAdminDatetimeHO);
-            %this.verifyEqual(this.testObj.doseAdminDatetime, this.doseAdminDatetimeHO);
+            this.verifyEqual(seconds(this.testObj.datetime0 - this.doseAdminDatetimeHO), 0.68, 'RelTol', 1e-14);
+            this.verifyTrue(this.testObj.doseAdminDatetime == this.doseAdminDatetimeHO);
             this.verifyEqual(this.testObj.dt, 1);
             this.verifyEqual(this.testObj.index0, 1);
-            this.verifyEqual(this.testObj.indexF, 358);
+            this.verifyEqual(this.testObj.indexF, 286);
             this.verifyEqual(this.testObj.time0, 0);
-            this.verifyEqual(this.testObj.timeF, 357);
-            this.verifyEqual(this.testObj.timeDuration, 357);
+            this.verifyEqual(this.testObj.timeF, 285);
+            this.verifyEqual(this.testObj.timeDuration, 285);
             this.verifyEqual(this.testObj.times(1), 0);
-            this.verifyEqual(this.testObj.times(end), 357);
+            this.verifyEqual(this.testObj.times(end), 285);
             this.verifyEqual(this.testObj.timeMidpoints(1),   0.5, 'RelTol', 1e-14);
-            this.verifyEqual(this.testObj.timeMidpoints(end), 357.5);
+            this.verifyEqual(this.testObj.timeMidpoints(end), 285.5);
             this.verifyEqual(this.testObj.taus(1),   1, 'RelTol', 1e-14);
             this.verifyEqual(this.testObj.taus(end), 1);
             this.verifyEqual(this.testObj.isotope, '15O');
             this.verifyEqual(this.testObj.W, nan);
             this.verifyEqual(size(this.testObj.tableTwilite), [12392 9]);
-            this.verifyEqual(size(this.testObj.channel1), [1 358]);
-            this.verifyEqual(size(this.testObj.channel2), [1 358]);
-            this.verifyEqual(size(this.testObj.coincidence), [1 358]);
-            this.verifyEqual(size(this.testObj.times), [1 358]);
-            this.verifyEqual(size(this.testObj.timeMidpoints), [1 358]);
-            this.verifyEqual(size(this.testObj.taus), [1 358]);
-            this.verifyEqual(size(this.testObj.counts), [1 358]);
-            this.verifyEqual(size(this.testObj.activity), [1 358]);
-            this.verifyEqual(size(this.testObj.specificDecays), [1 358]);
-            this.verifyEqual(size(this.testObj.specificActivity), [1 358]);
+            this.verifyEqual(size(this.testObj.channel1), [1 286]);
+            this.verifyEqual(size(this.testObj.channel2), [1 286]);
+            this.verifyEqual(size(this.testObj.coincidence), [1 286]);
+            this.verifyEqual(size(this.testObj.times), [1 286]);
+            this.verifyEqual(size(this.testObj.timeMidpoints), [1 286]);
+            this.verifyEqual(size(this.testObj.taus), [1 286]);
+            this.verifyEqual(size(this.testObj.counts), [1 286]);
+            this.verifyEqual(size(this.testObj.activity), [1 286]);
+            this.verifyEqual(size(this.testObj.specificDecays), [1 286]);
+            this.verifyEqual(size(this.testObj.specificActivity), [1 286]);
         end
         function test_plot(this)
             plot(this.testObj, '.');
