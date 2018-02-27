@@ -7,15 +7,15 @@ classdef PLaif < mlperfusion.AbstractPLaif
  	%% It was developed on Matlab 9.2.0.538062 (R2017a) for MACI64.  Copyright 2017 John Joowon Lee.
  	
 	properties
-        S0 = 7e6
-        a  = 0.09
-        b  = 0.5
-        e  = 0.002
-        f  = 0.1 % fraction of S0 for recirculation
-        g  = 0.0005
-        p  = 0.3
+        S0 = 6.5e6
+        a  = 3.4
+        b  = 8.5
+        e  = 0.003
+        f  = 0 % fraction of S0 for recirculation
+        g  = 0.09
+        p  = 0.45
         t0 = 32 
-        t1 = 13 % recirculation starts at t0 + t1
+        t1 = 0 % recirculation starts at t0 + t1
         
         xLabel = 'times/s'
         yLabel = 'activity'
@@ -35,13 +35,13 @@ classdef PLaif < mlperfusion.AbstractPLaif
             m = containers.Map;
             m('S0') = struct('fixed', 0, 'min', this.S0/30, 'mean', this.S0, 'max', 30*this.S0);
             m('a')  = struct('fixed', 0, 'min', 0.0001,     'mean', this.a,  'max', 10); 
-            m('b')  = struct('fixed', 0, 'min', 0.01,       'mean', this.b,  'max', 3);
+            m('b')  = struct('fixed', 0, 'min', 0.01,       'mean', this.b,  'max', 30);
             m('e')  = struct('fixed', 0, 'min', 0,          'mean', this.e,  'max', 0.01);
-            m('f')  = struct('fixed', 0, 'min', 0,          'mean', this.f,  'max', 0.2);
+            m('f')  = struct('fixed', 1, 'min', 0,          'mean', this.f,  'max', 0.2);
             m('g')  = struct('fixed', 0, 'min', 0.0001,     'mean', this.g,  'max', 0.1);
             m('p')  = struct('fixed', 0, 'min', 0.1,        'mean', this.p,  'max', 2); 
             m('t0') = struct('fixed', 0, 'min', 0,          'mean', this.t0, 'max', 60); 
-            m('t1') = struct('fixed', 0, 'min', 0,          'mean', this.t1, 'max', 30); 
+            m('t1') = struct('fixed', 1, 'min', 0,          'mean', this.t1, 'max', 30); 
         end
     end
     
@@ -81,9 +81,19 @@ classdef PLaif < mlperfusion.AbstractPLaif
         function kA   = kAif(a, b, e, f, g, p, t0, t1, t)
             import mlswisstrace.*;
             %% exp(-PLaif1Training.LAMBDA_DECAY_15O*(t - t0)) .* PLaif1Training.Heaviside(t, t0) .* ...
-            kA = (1 - f)*PLaif.bolusFlowFractal(a, b, p, t0, t) + ...
-                      f *PLaif.bolusFlowFractal(a, b, p, t0 + t1, t) + ...
-                         PLaif.bolusSteadyStateTerm(e, g, t0, t);
+            
+            if (f > 0 && t1 > 0)
+                kA = (1 - f)*PLaif.bolusFlowFractal(a, b, p, t0, t) + ...
+                          f *PLaif.bolusFlowFractal(a, b, p, t0 + t1, t) + ...
+                             PLaif.bolusSteadyStateTerm(e, g, t0, t);
+                return
+            end
+            if (e > 0)
+                kA = PLaif.bolusFlowFractal(a, b, p, t0, t) + ...
+                     PLaif.bolusSteadyStateTerm(e, g, t0, t);
+                return
+            end
+            kA = PLaif.bolusFlowFractal(a, b, p, t0, t);
         end        
         function kc   = kConcentration(kc)
         end 
@@ -104,7 +114,9 @@ classdef PLaif < mlperfusion.AbstractPLaif
  		function this = PLaif(varargin)
  			%% PLAIF
  			%  Usage:  this = PLaif()
- 			this = this@mlperfusion.AbstractPLaif(varargin{:});
+ 			this = this@mlperfusion.AbstractPLaif(varargin{:});           
+            this = this.loadKernel;
+            this = this.buildJeffreysPrior;
             this.expectedBestFitParams_ = ...
                 [this.S0 this.a this.b this.e this.f this.g this.p this.t0 this.t1]';
         end
@@ -202,9 +214,17 @@ classdef PLaif < mlperfusion.AbstractPLaif
     
     properties (Access = private)
         expectedBestFitParams_
+        kernel_
+        kernelRange_ = 12:40
+        kernelBestFilename_ = '/Users/jjlee/MATLAB-Drive/mlarbelaez/src/+mlarbelaez/kernelBest.mat'
     end
     
     methods (Access = private)
+        function this = loadKernel(this)            
+            load(this.kernelBestFilename_);
+            this.kernel_ = kernelBest(this.kernelRange_);
+            this.kernel_ = this.kernel_ / sum(this.kernel_);             
+        end
     end    
 
 	%  Created with Newcl by John J. Lee after newfcn by Frank Gonzalez-Morphy
