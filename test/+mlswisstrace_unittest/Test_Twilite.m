@@ -17,8 +17,8 @@ classdef Test_Twilite < matlab.unittest.TestCase
         doseAdminDatetimeOO = datetime(2016,9,23,11,13,5,  'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE);
         doseAdminDatetimeHO = datetime(2016,9,23,11,30,1,  'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE);
         
-        fqfn = '/Users/jjlee/Documents/private/HYGLY28_VISIT_2_23sep2016_D1.crv'
-        fqfnman = '/Users/jjlee/Documents/private/CCIRRadMeasurements 2016sep23.xlsx'
+        fqfn    = fullfile(getenv('HOME'), 'Documents/private/HYGLY28_VISIT_2_23sep2016_D1.crv')
+        fqfnman = fullfile(getenv('HOME'), 'Documents/private/CCIRRadMeasurements 2016sep23.xlsx')
         mand
  		registry
         sessd

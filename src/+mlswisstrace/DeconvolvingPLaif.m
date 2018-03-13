@@ -50,11 +50,11 @@ classdef DeconvolvingPLaif < mlperfusion.AbstractPLaif
     end
     
     methods (Static)
-        function this = runPLaif(times, becq)
+        function this = runPLaif(times, becq, label)
             this = mlswisstrace.DeconvolvingPLaif({times}, {becq});
             this = this.estimateParameters(this.mapParams);
             this.plot;
-            saveFigures(sprintf('fig_%s', this.fileprefix));  
+            saveFigures(sprintf('fig_%s_%s', this.fileprefix, label));  
         end 
         function dsa  = deconvSpecificActivity(S0, a, b, e, f, g, p, t0, t1, t)
             import mlswisstrace.*;
@@ -205,7 +205,7 @@ classdef DeconvolvingPLaif < mlperfusion.AbstractPLaif
         expectedBestFitParams_
         kernel_
         kernelRange_ = 12:40
-        kernelBestFilename_ = '/Users/jjlee/MATLAB-Drive/mlarbelaez/src/+mlarbelaez/kernelBest.mat'
+        kernelBestFilename_ = fullfile(getenv('HOME'), 'MATLAB-Drive/mlarbelaez/src/+mlarbelaez/kernelBest.mat')
     end
     
     methods (Access = private)

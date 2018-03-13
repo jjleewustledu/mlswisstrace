@@ -216,7 +216,7 @@ classdef PLaif < mlperfusion.AbstractPLaif
         expectedBestFitParams_
         kernel_
         kernelRange_ = 12:40
-        kernelBestFilename_ = '/Users/jjlee/MATLAB-Drive/mlarbelaez/src/+mlarbelaez/kernelBest.mat'
+        kernelBestFilename_ = fullfile(getenv('HOME'), 'MATLAB-Drive/mlarbelaez/src/+mlarbelaez/kernelBest.mat')
     end
     
     methods (Access = private)

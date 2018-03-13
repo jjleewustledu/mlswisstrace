@@ -28,15 +28,15 @@ classdef AbstractTwilite < mlpet.AbstractAifData
         
         function c    = get.channel1(this)
             c = ensureRowVector(this.tableTwilite_.channel1);
-            c = c(this.isValidTableRow);
+            c = c(this.isSelectedTableRow);
         end
         function c    = get.channel2(this)
             c = ensureRowVector(this.tableTwilite_.channel2);
-            c = c(this.isValidTableRow);
+            c = c(this.isSelectedTableRow);
         end
         function c    = get.coincidence(this)
             c = ensureRowVector(this.tableTwilite_.coincidence);
-            c = c(this.isValidTableRow);
+            c = c(this.isSelectedTableRow);
         end
         function g    = get.counts2specificActivity(this)
             g = this.counts2specificActivity_;
@@ -69,10 +69,13 @@ classdef AbstractTwilite < mlpet.AbstractAifData
             this = bldr.product;
         end
         function dt_  = datetime(this)
-            %% DATETIME excludes inappropriate data using this.isValidTableRow.
+            dt_ = this.datetimeSelection;
+        end
+        function dt_  = datetimeSelection(this)
+            %% DATETIME includes data index0:indexF using this.isSelectedTableRow.
             
             dt_ = this.tableTwilite2datetime;            
-            dt_ = dt_(this.isValidTableRow);
+            dt_ = dt_(this.isSelectedTableRow);
         end
         function        plot(this, varargin)
             figure;
@@ -85,15 +88,26 @@ classdef AbstractTwilite < mlpet.AbstractAifData
         end
         function        plotCounts(this, varargin)  
             figure;
-            plot(this.datetime, this.counts, varargin{:});
+            plot(this.datetime, this.counts(this.index0:this.indexF), varargin{:});
             xlabel(sprintf('datetime from %s', this.datetime0));
             ylabel('counts');
             title(sprintf('AbstractTwilite.plotCounts:  time0->%g, timeF->%g', this.time0, this.timeF), ...
                 'Interpreter', 'none');
         end
+        function        plotDx(this, varargin)
+            figure;
+            plot(this.times, this.specificActivity, varargin{:});
+            xlabel(sprintf('datetime from %s', this.datetime0));
+            ylabel('specificActivity');
+            title(sprintf( ...
+                'AbstractTwilite.plotSpecificActivity:  datetime0->%s, time0->%g, timeF->%g, Eff^{-1}->%g', ...
+                this.datetime0, this.time0, this.timeF, this.invEfficiency), ...
+                'Interpreter', 'none');
+            
+        end
         function        plotSpecificActivity(this, varargin)
             figure;
-            plot(this.datetime, this.specificActivity, varargin{:});
+            plot(this.datetime, this.specificActivity(this.index0:this.indexF), varargin{:});
             xlabel(sprintf('datetime from %s', this.datetime0));
             ylabel('specificActivity');
             title(sprintf( ...
@@ -134,10 +148,10 @@ classdef AbstractTwilite < mlpet.AbstractAifData
             end
             error('mpet:unsupportedParamValue', 'AbstractTwilite:arterialCatheterVisibleVolume');
         end
-        function tf   = isValidTableRow(this)
+        function tf   = isSelectedTableRow(this)
             tt2dt = this.tableTwilite2datetime;
             if (isempty(this.timingData_) || isempty(this.timingData_.datetimeF))
-                tf = this.datetime0 >= tt2dt;
+                tf = this.datetime0 <= tt2dt;
                 return
             end
             tf = this.timingData_.datetime0 <= tt2dt & ...
