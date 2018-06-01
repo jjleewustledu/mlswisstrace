@@ -12,14 +12,13 @@ classdef Test_TwiliteBuilder < matlab.unittest.TestCase
  	
 	properties
         ccirRadMeasurementsDir = fullfile(getenv('HOME'), 'Documents', 'private', '')
-        fqCrv
-        fqCrvCal
+        doseAdminDatetimeHO = datetime(2016,9,23,11,32-2,25-24, 'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE)
  		registry
+        sessd
+        sessf = 'HYGLY28'
         sessp
  		testObj
-        
-        doseAdminDatetimeHO  = datetime(2016,9,23,11,32-2,25-24, 'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE);
-        doseAdminDatetimeCal = datetime(2016,9,23,14,9,52,       'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE);
+        vnum = 1
  	end
 
 	methods (Test)
@@ -27,65 +26,68 @@ classdef Test_TwiliteBuilder < matlab.unittest.TestCase
  			import mlswisstrace.*;
             this.verifyClass(this.testObj, 'mlswisstrace.TwiliteBuilder');
         end
-        function test_buildCalibrator(this)
-            this.testObj = this.testObj.buildCalibrator;
-            calibrator   = this.testObj.product;
-            this.verifyClass(calibrator, 'mlswisstrace.TwiliteCalibration');
-            calibrator.plot;
-            calibrator.plotCounts;
-            % calibrator.plotSpecificActivity; % calibrator.counts2specificActivity == nan
-        end
         function test_buildNative(this)
             this.testObj = this.testObj.buildNative;
             native       = this.testObj.product;
             this.verifyClass(native, 'mlswisstrace.Twilite');
             native.plot;
             native.plotCounts;
-            % native.plotSpecificActivity; % calibrator.counts2specificActivity == nan
+            native.plotSpecificActivity; % calibrator.counts2specificActivity == nan
+        end
+        function test_buildCalibrator(this)
+            this.testObj = this.testObj.buildCalibrator;
+            calibrator   = this.testObj.product;
+            this.verifyClass(calibrator, 'mlswisstrace.TwiliteCalibration');
+            calibrator.plot;
+            calibrator.plotCounts;
+            calibrator.plotSpecificActivity; % calibrator.counts2specificActivity == nan
         end
 		function test_buildCalibrated(this)
             this.testObj = this.testObj.buildCalibrated;
             calibrated   = this.testObj.product;
             this.verifyClass(calibrated, 'mlswisstrace.Twilite');
-            calibrated.plot;
-            calibrated.plotCounts;
-            calibrated.plotSpecificActivity;
+            %calibrated.plot;
+            %calibrated.plotCounts;
+            %calibrated.plotSpecificActivity;
             
-            this.verifyEqual(length(calibrated.times), 358);  
+            this.verifyEqual(length(calibrated.times), 286);  
             this.verifyEqual(calibrated.times(1), 0);       
-            this.verifyEqual(calibrated.times(end), 357);
+            this.verifyEqual(calibrated.times(end), 285);
             this.verifyEqual(calibrated.specificActivity(1:3), ...
-                [8.348512858610855   2.989932512153655  -0.135906023279712], 'RelTol', 1e-9);
+                1e3*[7.123592148347424   2.039590646288643  -0.926076896578980], 'RelTol', 1e-9);
             this.verifyEqual(calibrated.specificActivity(60:62), ...
-                [83.815186071216402  70.865283567278183  78.456605724759214], 'RelTol', 1e-9);
+                1e3*[78.723279969008601  66.436943005699888  73.639278466949818], 'RelTol', 1e-9);
             this.verifyEqual(calibrated.specificActivity(120:122), ...
-                [22.191512086958621  21.744963724753855  29.336285882234886], 'RelTol', 1e-9);
+                1e3*[20.257262695332610  19.833595903494377  27.035931364744318], 'RelTol', 1e-9);
  		end
+		function test_buildCounts2specificActivity(this)
+            this.testObj = this.testObj.buildCounts2specificActivity;
+            this.verifyEqual(this.testObj.counts2specificActivity, 423.667, 'RelTol', 1e-3);
+        end
+		function test_counts2specificActivity(this)
+            this.verifyEqual(this.testObj.counts2specificActivity, 423.667, 'RelTol', 1e-3);
+        end
+		function test_dispCounts2specificActivity(this)
+            fprintf('%g Bq s/(mL counts) for %s V%i on %s', ...
+                this.testObj.counts2specificActivity, ...
+                this.testObj.sessionData.sessionFolder, ...
+                this.testObj.sessionData.vnumber, ...
+                char(this.testObj.sessionData.sessionDate));
+        end
 	end
 
  	methods (TestClassSetup)
 		function setupTwiliteBuilder(this)
  			import mlswisstrace.*;
             setenv('CCIR_RAD_MEASUREMENTS_DIR', this.ccirRadMeasurementsDir);
-            this.sessp = fullfile(getenv('PPG'), 'jjlee2', 'HYGLY28', '');
-            sessd = mlraichle.SessionData( ...
+            this.sessp = fullfile(getenv('PPG'), 'jjlee2', this.sessf, '');
+            this.sessd = mlraichle.SessionData( ...
                 'studyData', mlraichle.StudyData, ...
                 'sessionPath', this.sessp, ...
-                'sessionDate', datetime('23-Sep-2016'), ...
+                'vnumber', this.vnum, ...
                 'tracer', 'HO');
-%             scand = mlsiemens.BiographMMR( ...
-%                 mlfourd.NIfTId.load(fullfile(this.sessp, 'V1', 'HO1_V1-AC', 'ho1v1r1.4dfp.ifh')), ...
-%                 'sessionData', sessd);
-            mand = mlsiemens.XlsxObjScanData('sessionData', sessd);
-%             calibb = mlpet.CalibrationBuilder( ...
-%                 );
-            this.fqCrv = fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'HYGLY28_VISIT_2_23sep2016_D1.crv');
-            this.fqCrvCal = fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'HYGLY28_VISIT_2_23sep2016_twilite_cal_D1.crv');
  			this.testObj_ = TwiliteBuilder( ...
-                'fqfilename', this.fqCrv, ...
-                'fqfilenameCalibrator', this.fqCrvCal, ...
-                'sessionData', sessd, ...
-                'manualData', mand, ...
+                'sessionData', this.sessd, ...
                 'datetime0', this.doseAdminDatetimeHO);
  		end
 	end

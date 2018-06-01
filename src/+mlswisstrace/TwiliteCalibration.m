@@ -11,7 +11,7 @@ classdef TwiliteCalibration < mlswisstrace.AbstractTwilite
  		function this = TwiliteCalibration(varargin)
  			%% TWILITECALIBRATION
        
- 			this = this@mlswisstrace.AbstractTwilite(varargin{:});            
+ 			this = this@mlswisstrace.AbstractTwilite(varargin{:}, 'doMeasureBaseline', false);            
             ip = inputParser;
             ip.KeepUnmatched = true;
             addParameter(ip, 'isotope', '18F', @ischar);

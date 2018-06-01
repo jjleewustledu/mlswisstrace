@@ -27,12 +27,22 @@ classdef AbstractTwilite < mlpet.AbstractAifData
         %% GET 
         
         function c    = get.channel1(this)
-            c = ensureRowVector(this.tableTwilite_.channel1);
-            c = c(this.isSelectedTableRow);
+            try
+                c = ensureRowVector(this.tableTwilite_.channel1);
+                c = c(this.isSelectedTableRow);
+            catch ME
+                dispwarning(ME);
+                c = [];
+            end
         end
         function c    = get.channel2(this)
-            c = ensureRowVector(this.tableTwilite_.channel2);
-            c = c(this.isSelectedTableRow);
+            try
+                c = ensureRowVector(this.tableTwilite_.channel2);
+                c = c(this.isSelectedTableRow);
+            catch ME
+                dispwarning(ME);
+                c = [];
+            end
         end
         function c    = get.coincidence(this)
             c = ensureRowVector(this.tableTwilite_.coincidence);
@@ -79,16 +89,23 @@ classdef AbstractTwilite < mlpet.AbstractAifData
         end
         function        plot(this, varargin)
             figure;
-            plot(this.datetime, this.channel1, ...
-                 this.datetime, this.channel2, ...
-                 this.datetime, this.coincidence, varargin{:});
             xlabel('this.datetime');
-            ylabel('channel1, channel2, coincidence');
+            try
+                ylabel('channel1, channel2, coincidence');
+                plot(this.datetime, this.channel1, ...
+                     this.datetime, this.channel2, ...
+                     this.datetime, this.coincidence, varargin{:});
+            catch ME
+                dispwarning(ME);
+                ylabel('coincidence');
+                plot(this.datetime, this.coincidence, varargin{:});
+            end
             title(sprintf('AbstractTwilite.plot:\n%s', this.fqfilename), 'Interpreter', 'none');
         end
         function        plotCounts(this, varargin)  
             figure;
-            plot(this.datetime, this.counts(this.index0:this.indexF), varargin{:});
+            indexF_ = this.index0 + length(this.datetime) - 1;
+            plot(this.datetime, this.counts(this.index0:indexF_), varargin{:});
             xlabel(sprintf('datetime from %s', this.datetime0));
             ylabel('counts');
             title(sprintf('AbstractTwilite.plotCounts:  time0->%g, timeF->%g', this.time0, this.timeF), ...
@@ -107,7 +124,8 @@ classdef AbstractTwilite < mlpet.AbstractAifData
         end
         function        plotSpecificActivity(this, varargin)
             figure;
-            plot(this.datetime, this.specificActivity(this.index0:this.indexF), varargin{:});
+            indexF_ = this.index0 + length(this.datetime) - 1;
+            plot(this.datetime, this.specificActivity(this.index0:indexF_), varargin{:});
             xlabel(sprintf('datetime from %s', this.datetime0));
             ylabel('specificActivity');
             title(sprintf( ...
@@ -165,6 +183,10 @@ classdef AbstractTwilite < mlpet.AbstractAifData
             warning('off', 'MATLAB:table:ModifiedVarnames');   
             warning('off', 'MATLAB:table:ModifiedAndSavedVarnames');  
             
+            assert(lexist(ip.Results.fqfnCrv), ...
+                'mlswisstraceAbstractTwilite.readtable could not open %s', ip.Results.fqfnCrv);
+            assert(~isdir(ip.Results.fqfnCrv), ...
+                'mlswisstraceAbstractTwilite.readtable received a path without expected file: %s', ip.Results.fqfnCrv);
             tbl = readtable(ip.Results.fqfnCrv, ...
                 'FileType', 'text', 'ReadVariableNames', false, 'ReadRowNames', false);
             tbl.Properties.VariableNames{'Var1'} = 'year';
@@ -174,8 +196,12 @@ classdef AbstractTwilite < mlpet.AbstractAifData
             tbl.Properties.VariableNames{'Var5'} = 'min';
             tbl.Properties.VariableNames{'Var6'} = 'sec';
             tbl.Properties.VariableNames{'Var7'} = 'coincidence';
-            tbl.Properties.VariableNames{'Var8'} = 'channel1';
-            tbl.Properties.VariableNames{'Var9'} = 'channel2';
+            try
+                tbl.Properties.VariableNames{'Var8'} = 'channel1';
+                tbl.Properties.VariableNames{'Var9'} = 'channel2';
+            catch ME
+                dispwarning(ME);
+            end
             this.tableTwilite_ = tbl;
             
             warning('on', 'MATLAB:table:ModifiedVarnames');
@@ -226,18 +252,23 @@ classdef AbstractTwilite < mlpet.AbstractAifData
             ip.KeepUnmatched = true;
             addParameter(ip, 'dt', 1,                 @isnumeric);
             addParameter(ip, 'doseAdminDatetime', [], @isdatetime);
-            addParameter(ip, 'invEfficiency', nan, @isnumeric);
-            addParameter(ip, 'aifTimeShift', 0,       @isnumeric); % @deprecated
+            addParameter(ip, 'invEfficiency', nan,    @isnumeric);
+            addParameter(ip, 'aifTimeShift', 0,       @isnumeric); % @deprecated            
+            addParameter(ip, 'expectedBaseline', 90,  @isnumeric);
+            addParameter(ip, 'doMeasureBaseline', true, @islogical);
             parse(ip, varargin{:});            
             this = this.readtable;
             this.timingData_ = mlpet.MultiBolusData( ...
                 'activity', this.tableTwilite2coincidence, ...
                 'times', this.tableTwilite2datetime, ...
-                'dt', ip.Results.dt);    
+                'dt', ip.Results.dt, ...
+                'expectedBaseline', ip.Results.expectedBaseline, ...
+                'doMeasureBaseline', ip.Results.doMeasureBaseline);
             this.counts2specificActivity_ = ip.Results.invEfficiency;
             %this.timingData_.datetime0 = ip.Results.doseAdminDatetime; % must be separated from mlpetMultiBolusData ctor
             
             this = this.updateActivities;
+            this = this.updatePropertyDecayCorrection;
             this.isDecayCorrected_ = false;
             this.isPlasma = false;
  		end
