@@ -8,9 +8,6 @@ classdef AbstractTwilite < mlpet.AbstractAifData
  		
     properties        
         pumpRate = 5 % mL/min    
-        
-        fqCrv = fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'HYGLY28_VISIT_2_23sep2016_D1.crv');
-        fqCrvCal = fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'HYGLY28_VISIT_2_23sep2016_twilite_cal_D1.crv');
     end
     
 	properties (Dependent)
@@ -18,6 +15,8 @@ classdef AbstractTwilite < mlpet.AbstractAifData
         channel2 % delimited by datetime0/F
         coincidence % counts/s, delimited by datetime0/F
         counts2specificActivity % scalar, TBD by a TwiliteBuilder
+        fqCrv
+        fqCrvCal
         invEfficiency % outer-most efficiency for s.a. determined by cross-calibration, synonymous with counts2SpecificActivity
         tableTwilite % all stored data
     end
@@ -55,6 +54,13 @@ classdef AbstractTwilite < mlpet.AbstractAifData
             assert(isnumeric(s));
             this.counts2specificActivity_ = s;            
             this.specificActivity_ = this.counts2specificActivity_*this.counts_;
+        end
+        function g    = get.fqCrv(this)
+            g = this.fqfilename;
+        end
+        function g    = get.fqCrvCal(this)
+            error('mlswisstrace:notImplemented', 'AbstractTwilite.get.fqCrvCal');
+            g = fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), '');
         end
         function g    = get.invEfficiency(this)
             g = this.counts2specificActivity;
@@ -102,13 +108,23 @@ classdef AbstractTwilite < mlpet.AbstractAifData
             end
             title(sprintf('AbstractTwilite.plot:\n%s', this.fqfilename), 'Interpreter', 'none');
         end
+        function        plotTableTwilite(this, varargin)
+            figure;
+            dt = this.tableTwilite2datetime;
+            plot(dt, this.tableTwilite2coincidence, varargin{:});
+            xlabel(sprintf('datetime from %s', dt(1)));
+            ylabel('counts');
+            title(sprintf('AbstractTwilite.plotTableTwilite:\ndoseAdminDatetime->%s,\ndatetime0->%s', ...
+                this.doseAdminDatetime, this.datetime0), ...
+                'Interpreter', 'none');            
+        end
         function        plotCounts(this, varargin)  
             figure;
             indexF_ = this.index0 + length(this.datetime) - 1;
             plot(this.datetime, this.counts(this.index0:indexF_), varargin{:});
             xlabel(sprintf('datetime from %s', this.datetime0));
             ylabel('counts');
-            title(sprintf('AbstractTwilite.plotCounts:  time0->%g, timeF->%g', this.time0, this.timeF), ...
+            title(sprintf('AbstractTwilite.plotCounts:\ntime0->%g, timeF->%g', this.time0, this.timeF), ...
                 'Interpreter', 'none');
         end
         function        plotDx(this, varargin)
@@ -117,7 +133,7 @@ classdef AbstractTwilite < mlpet.AbstractAifData
             xlabel(sprintf('datetime from %s', this.datetime0));
             ylabel('specificActivity');
             title(sprintf( ...
-                'AbstractTwilite.plotSpecificActivity:  datetime0->%s, time0->%g, timeF->%g, Eff^{-1}->%g', ...
+                'AbstractTwilite.plotSpecificActivity:\ndatetime0->%s, time0->%g, timeF->%g, Eff^{-1}->%g', ...
                 this.datetime0, this.time0, this.timeF, this.invEfficiency), ...
                 'Interpreter', 'none');
             
@@ -129,7 +145,7 @@ classdef AbstractTwilite < mlpet.AbstractAifData
             xlabel(sprintf('datetime from %s', this.datetime0));
             ylabel('specificActivity');
             title(sprintf( ...
-                'AbstractTwilite.plotSpecificActivity:  time0->%g, timeF->%g, Eff^{-1}->%g', ...
+                'AbstractTwilite.plotSpecificActivity:\ntime0->%g, timeF->%g, Eff^{-1}->%g', ...
                 this.time0, this.timeF, this.invEfficiency), ...
                 'Interpreter', 'none');
         end
@@ -245,6 +261,7 @@ classdef AbstractTwilite < mlpet.AbstractAifData
  		function this = AbstractTwilite(varargin)
  			%% ABSTRACTTWILITE
             %  @param named doseAdminDatetime refers to the true time for the selected tracer.
+            %  See also mlswisstrace.AbstractTwilite.updateTimmingData.
 
  			this = this@mlpet.AbstractAifData(varargin{:});
             
@@ -254,18 +271,23 @@ classdef AbstractTwilite < mlpet.AbstractAifData
             addParameter(ip, 'doseAdminDatetime', [], @isdatetime);
             addParameter(ip, 'invEfficiency', nan,    @isnumeric);
             addParameter(ip, 'aifTimeShift', 0,       @isnumeric); % @deprecated            
-            addParameter(ip, 'expectedBaseline', 90,  @isnumeric);
+            addParameter(ip, 'expectedBaseline', 92,  @isnumeric);
             addParameter(ip, 'doMeasureBaseline', true, @islogical);
-            parse(ip, varargin{:});            
+            parse(ip, varargin{:});
             this = this.readtable;
             this.timingData_ = mlpet.MultiBolusData( ...
                 'activity', this.tableTwilite2coincidence, ...
                 'times', this.tableTwilite2datetime, ...
                 'dt', ip.Results.dt, ...
                 'expectedBaseline', ip.Results.expectedBaseline, ...
-                'doMeasureBaseline', ip.Results.doMeasureBaseline);
-            this.counts2specificActivity_ = ip.Results.invEfficiency;
+                'doMeasureBaseline', ip.Results.doMeasureBaseline, ...
+                'radionuclide', mlpet.Radionuclides(this.isotope));
+            if (~isempty(ip.Results.doseAdminDatetime))
+                assert(ip.Results.doseAdminDatetime > this.timingData_.datetime0, ...
+                    'mlswisstrace:timingInconsistencyErr', 'AbstractTwilite.ctor');
+            end
             %this.timingData_.datetime0 = ip.Results.doseAdminDatetime; % must be separated from mlpetMultiBolusData ctor
+            this.counts2specificActivity_ = ip.Results.invEfficiency;
             
             this = this.updateActivities;
             this = this.updatePropertyDecayCorrection;

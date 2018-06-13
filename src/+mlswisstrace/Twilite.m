@@ -15,7 +15,7 @@ classdef Twilite < mlswisstrace.AbstractTwilite
  			this = this@mlswisstrace.AbstractTwilite(varargin{:});            
             ip = inputParser;
             ip.KeepUnmatched = true;
-            addParameter(ip, 'isotope', '15O', @ischar);
+            addParameter(ip, 'isotope', this.sessionData.isotope, @ischar);
             parse(ip, varargin{:});                      
             this.isotope_ = ip.Results.isotope;            
         end        

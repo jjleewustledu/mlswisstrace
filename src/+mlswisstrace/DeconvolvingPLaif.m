@@ -1,5 +1,37 @@
 classdef DeconvolvingPLaif < mlperfusion.AbstractPLaif
-	%% DeconvolvingPLaif  
+	%% DeconvolvingPLaif 
+    %  See also mlarbelaez.Betadcv3.silentGETTKE.  For gaussian kernel, sigma ~ E.
+    % 
+    % % KERNEL CALCULATION:  U ~ time, E ~ 1/(2 sigma^2)
+    % for I = 1:this.nbinMax
+    %     U = AK1 * ((I - 1) * TIMPBINE - T0);
+    %     if (U <= 0. || E * U^2 > 20.)
+    %         BSRF(I) = 0.;
+    %     else
+    %         R = 1. / (1. + U);
+    %         BSRF(I) = AK1 * TIMPBINE * R * exp(-E * U^2) * (2. * E * U + R);
+    %     end
+    % end
+    %
+    % function [T,AK,E]            = silentGETTKE(this)
+    % 
+    %     import mlarbelaez.Betadcv2.*;            
+    %     if (this.Hct > 1)
+    %         this.Hct = this.Hct / 100.;
+    %     end
+    %     if (this.catheterId == 1) 
+    %         % 35    cm @  5.00 cc/min        1  (standard)
+    %         T = 3.4124 - 3.4306 * (this.Hct - .3552);
+    %         AK = 0.2919 - 0.5463 * (this.Hct - .3552);
+    %         E = 0.0753 - 0.1621 * (this.Hct - .3552);
+    %     else
+    %         % 35+10 cm @  5.00 cc/min        2  (extension)
+    %         T = 5.8971 - 3.2983 * (this.Hct - .3523);
+    %         AK = 0.2095 - 0.1476 * (this.Hct - .3523);
+    %         E = 0.0302 - 0.0869 * (this.Hct - .3523);
+    %     end
+    %     return
+    % end 
 
 	%  $Revision$
  	%  was created 22-May-2017 21:06:54 by jjlee,
@@ -17,6 +49,10 @@ classdef DeconvolvingPLaif < mlperfusion.AbstractPLaif
         t0 = 29
         t1 = 0 % recirculation starts at t0 + t1
         
+        empiricalDispersionTau  = 1;
+        empiricalDispersionType = 'Lorentz'; % broadens this.kernel_
+        finishingDispersionTau  = 2;
+        finishingDispersionType = 'Gauss'; % broadens itsDeconvSpecificActivity
         xLabel = 'times/s'
         yLabel = 'activity'
  	end
@@ -29,7 +65,7 @@ classdef DeconvolvingPLaif < mlperfusion.AbstractPLaif
     
     methods %% GET
         function dt = get.detailedTitle(this)
-            dt = sprintf('%s\nS0 %g, a %g, b %g, e %g, f %g, g %g, p %g, t0 %g, t1 %g', ...
+            dt = sprintf('%s\nS0 %g, a %g, b %g,\ne %g, f %g, g %g,\np %g, t0 %g, t1 %g', ...
                          this.baseTitle, this.S0, this.a, this.b, this.e, this.f, this.g, this.p, this.t0, this.t1);
         end
         function g  = get.kernel(this)
@@ -37,15 +73,15 @@ classdef DeconvolvingPLaif < mlperfusion.AbstractPLaif
         end
         function m  = get.mapParams(this)
             m = containers.Map;
-            m('S0') = struct('fixed', 0, 'min', this.S0/30, 'mean', this.S0, 'max', 30*this.S0);
-            m('a')  = struct('fixed', 0, 'min', 0.02,       'mean', this.a,  'max', 20); 
-            m('b')  = struct('fixed', 0, 'min', 0.02,       'mean', this.b,  'max', 20);
-            m('e')  = struct('fixed', 0, 'min', 0,          'mean', this.e,  'max', 0.2);
-            m('f')  = struct('fixed', 1, 'min', 0,          'mean', this.f,  'max', 0.2);
-            m('g')  = struct('fixed', 0, 'min', 0.001,      'mean', this.g,  'max', 0.1);
-            m('p')  = struct('fixed', 0, 'min', 0.1,        'mean', this.p,  'max', 2); 
-            m('t0') = struct('fixed', 0, 'min', 0,          'mean', this.t0, 'max', 60); 
-            m('t1') = struct('fixed', 1, 'min', 0,          'mean', this.t1, 'max', 20); 
+            m('S0') = struct('fixed', 0, 'min', this.S0/1e2, 'mean', this.S0, 'max', 1e2*this.S0);
+            m('a')  = struct('fixed', 0, 'min', 1e-4,        'mean', this.a,  'max', 1e2); 
+            m('b')  = struct('fixed', 0, 'min', 1e-2,        'mean', this.b,  'max', 1e3);
+            m('e')  = struct('fixed', 0, 'min', 0,           'mean', this.e,  'max', 0.2);
+            m('f')  = struct('fixed', 1, 'min', 0,           'mean', this.f,  'max', 0.2);
+            m('g')  = struct('fixed', 0, 'min', 1e-4,        'mean', this.g,  'max', 0.1);
+            m('p')  = struct('fixed', 0, 'min', 0.05,        'mean', this.p,  'max', 2); 
+            m('t0') = struct('fixed', 0, 'min', 0,           'mean', this.t0, 'max', 1e2); 
+            m('t1') = struct('fixed', 1, 'min', 0,           'mean', this.t1, 'max', 1e2); 
         end
     end
     
@@ -110,8 +146,37 @@ classdef DeconvolvingPLaif < mlperfusion.AbstractPLaif
             import mlswisstrace.*;
             this = DeconvolvingPLaif.simulateMcmc(this.S0, this.a, this.b, this.e, this.f, this.g, this.p, this.t0, this.t1, this.times{1}, this.mapParams);
         end
+        function sa   = convolveDispersion(~, sa, type, tau)
+            %% CONVOLVEEMPIRICALDISPERSION adds dispersion after Bayesian estimation to account for unmeasured 
+            %  dispersions such as inexact Heaviside inputs or dispersion differences between sampling (radial) artery 
+            %  and the target (carotid) artery.  See also mlswisstrace.DeconvolvingPLaif.itsDeconvSpecificActivity.
+            %  @param type is {'Gauss' 'Lorentz'}.
+            %  @param tau is numeric.
+            
+            if (tau < 0.1)
+                return
+            end
+            len = length(sa);
+            t = 0:len;
+            switch (type)
+                case 'Exp'
+                    krnl = exp(-t/tau);
+                case 'Gauss'
+                    krnl = exp(-(t.^2/(2*tau^2)));
+                case 'Lorentz' % 2*tau == FWHH
+                    krnl = (1/pi) * (tau./(t.^2 + tau^2));
+                otherwise
+                    error('mlswisstrace:unsupportedSwitchcase', 'DeconvolvingPLaif.convolveDispersion');
+            end            
+            krnl = krnl / sum(krnl);
+            sa = conv(sa, krnl);
+            sa = sa(1:len);
+        end
         function wc   = itsDeconvSpecificActivity(this)
-            wc = mlswisstrace.DeconvolvingPLaif.deconvSpecificActivity(this.S0, this.a, this.b, this.e, this.f, this.g, this.p, this.t0, this.t1, this.times{1});
+            wc = this.convolveDispersion( ...
+                mlswisstrace.DeconvolvingPLaif.deconvSpecificActivity( ...
+                this.S0, this.a, this.b, this.e, this.f, this.g, this.p, this.t0, this.t1, this.times{1}), ...
+                this.finishingDispersionType, this.finishingDispersionTau);
         end
         function wc   = itsSpecificActivity(this)
             wc = mlswisstrace.DeconvolvingPLaif.specificActivity(this.S0, this.a, this.b, this.e, this.f, this.g, this.p, this.t0, this.t1, this.times{1}, this.kernel_);
@@ -133,17 +198,6 @@ classdef DeconvolvingPLaif < mlperfusion.AbstractPLaif
         function ed   = estimateDataFast(this, S0, a, b, e, f, g, p, t0, t1)
             ed{1} = this.specificActivity(           S0, a, b, e, f, g, p, t0, t1, this.times{1}, this.kernel_);
         end
-%%        function ps   = adjustParams(this, ps)
-%             theParams = this.theParameters;
-%             if (this.mapParams('b').fixed || this.mapParams('g').fixed)
-%                 return
-%             end
-%             if (ps(theParams.paramsIndices('b')) < ps(theParams.paramsIndices('g')))
-%                 tmp                              = ps(theParams.paramsIndices('g'));
-%                 ps(theParams.paramsIndices('g')) = ps(theParams.paramsIndices('b'));
-%                 ps(theParams.paramsIndices('b')) = tmp;
-%             end
-%         end  
 
         function plot(this, varargin)
             figure;
@@ -209,9 +263,11 @@ classdef DeconvolvingPLaif < mlperfusion.AbstractPLaif
     end
     
     methods (Access = private)
-        function this = loadKernel(this)            
+        function this = loadKernel(this)
             load(this.kernelBestFilename_);
             this.kernel_ = kernelBest(this.kernelRange_);
+            this.kernel_ = this.convolveDispersion( ...
+                this.kernel_, this.empiricalDispersionType, this.empiricalDispersionTau);
             this.kernel_ = this.kernel_ / sum(this.kernel_);             
         end
     end    
