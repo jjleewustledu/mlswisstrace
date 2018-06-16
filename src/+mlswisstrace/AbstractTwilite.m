@@ -250,7 +250,6 @@ classdef AbstractTwilite < mlpet.AbstractAifData
             %  this.doseAdminDatetime.
             
             this = this.updateTimingData;
-            %this.decayCorrection_ = mlpet.DecayCorrection.factoryFor(this);
             this.counts_ = this.timingData_.activity;
             this.specificActivity_ = this.counts2specificActivity_*this.counts_;
         end
@@ -286,7 +285,6 @@ classdef AbstractTwilite < mlpet.AbstractAifData
                 assert(ip.Results.doseAdminDatetime > this.timingData_.datetime0, ...
                     'mlswisstrace:timingInconsistencyErr', 'AbstractTwilite.ctor');
             end
-            %this.timingData_.datetime0 = ip.Results.doseAdminDatetime; % must be separated from mlpetMultiBolusData ctor
             this.counts2specificActivity_ = ip.Results.invEfficiency;
             
             this = this.updateActivities;
