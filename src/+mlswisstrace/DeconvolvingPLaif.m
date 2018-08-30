@@ -1,4 +1,4 @@
-classdef DeconvolvingPLaif < mlperfusion.AbstractPLaif
+classdef DeconvolvingPLaif < handle & mlbayesian.AbstractMcmcStrategy
 	%% DeconvolvingPLaif 
     %  See also mlarbelaez.Betadcv3.silentGETTKE.  For gaussian kernel, sigma ~ E.
     % 
@@ -38,21 +38,23 @@ classdef DeconvolvingPLaif < mlperfusion.AbstractPLaif
  	%  last modified $LastChangedDate$ and placed into repository /Users/jjlee/Local/src/mlcvl/mlswisstrace/src/+mlswisstrace.
  	%% It was developed on Matlab 9.2.0.538062 (R2017a) for MACI64.  Copyright 2017 John Joowon Lee.
  	
+    properties (Constant)
+        EMPIRICAL_DISP_FORM = 'Lorentz'; % broadens this.kernel_:  Exp, Gauss or Lorentz
+        EMPIRICAL_DISP_TAU  = 1;
+    end
+    
 	properties
         S0 = 8e6
         a  = 0.1
         b  = 1
-        e  = 0.01
+        e  = 0 % 0.01
         f  = 0 % fraction of S0 for recirculation
         g  = 0.05
-        p  = 0.4
+        p  = 1 % exp stretch; try 0.4
+        q  = 1 % exp stretch for recirculation
         t0 = 29
         t1 = 0 % recirculation starts at t0 + t1
         
-        empiricalDispersionTau  = 1;
-        empiricalDispersionType = 'Lorentz'; % broadens this.kernel_
-        finishingDispersionTau  = 2;
-        finishingDispersionType = 'Gauss'; % broadens itsDeconvSpecificActivity
         xLabel = 'times/s'
         yLabel = 'activity'
  	end
@@ -63,90 +65,52 @@ classdef DeconvolvingPLaif < mlperfusion.AbstractPLaif
         mapParams 
     end
     
-    methods %% GET
+    methods
+        
+        %% GET
+        
         function dt = get.detailedTitle(this)
-            dt = sprintf('%s\nS0 %g, a %g, b %g,\ne %g, f %g, g %g,\np %g, t0 %g, t1 %g', ...
-                         this.baseTitle, this.S0, this.a, this.b, this.e, this.f, this.g, this.p, this.t0, this.t1);
+            dt = sprintf('%s\nS0 %g, a %g, b %g,\ne %g, f %g, g %g,\np %g, q %g, t0 %g, t1 %g', ...
+                         this.baseTitle, this.S0, this.a, this.b, this.e, this.f, this.g, this.p, this.q, this.t0, this.t1);
         end
         function g  = get.kernel(this)
             g = this.kernel_;
         end
         function m  = get.mapParams(this)
+            m = this.getMapParams;
+        end
+        
+        function m = getMapParams(this)
             m = containers.Map;
             m('S0') = struct('fixed', 0, 'min', this.S0/1e2, 'mean', this.S0, 'max', 1e2*this.S0);
             m('a')  = struct('fixed', 0, 'min', 1e-4,        'mean', this.a,  'max', 1e2); 
             m('b')  = struct('fixed', 0, 'min', 1e-2,        'mean', this.b,  'max', 1e3);
-            m('e')  = struct('fixed', 0, 'min', 0,           'mean', this.e,  'max', 0.2);
-            m('f')  = struct('fixed', 1, 'min', 0,           'mean', this.f,  'max', 0.2);
-            m('g')  = struct('fixed', 0, 'min', 1e-4,        'mean', this.g,  'max', 0.1);
-            m('p')  = struct('fixed', 0, 'min', 0.05,        'mean', this.p,  'max', 2); 
+            m('e')  = struct('fixed', 1, 'min', 0,           'mean', this.e,  'max', 0.2);
+            m('f')  = struct('fixed', 1, 'min', 0,           'mean', this.f,  'max', 0.1);
+            m('g')  = struct('fixed', 1, 'min', 1e-4,        'mean', this.g,  'max', 0.1);
+            m('p')  = struct('fixed', 1, 'min', 0.05,        'mean', this.p,  'max', 2); 
+            m('q')  = struct('fixed', 1, 'min', 0.05,        'mean', this.q,  'max', 2); 
             m('t0') = struct('fixed', 0, 'min', 0,           'mean', this.t0, 'max', 1e2); 
-            m('t1') = struct('fixed', 1, 'min', 0,           'mean', this.t1, 'max', 1e2); 
+            m('t1') = struct('fixed', 1, 'min', 0,           'mean', this.t1, 'max', 1e2);             
         end
     end
     
     methods (Static)
-        function this = runPLaif(times, becq, label)
-            this = mlswisstrace.DeconvolvingPLaif({times}, {becq});
+        function this = runPLaif(varargin)
+            ip = inputParser;
+            addRequired(ip, 'times', @isnumeric);
+            addRequired(ip, 'sActivity', @isnumeric);
+            addOptional(ip, 'label', 'mlswisstrace.DeconvolvingPLaif', @ischar);
+            parse(ip, varargin{:});
+            
+            this = mlswisstrace.DeconvolvingPLaif( ...
+                {ip.Results.times}, {ip.Results.sActivity}, 'QType', 'SumSquaredResiduals');
             this = this.estimateParameters(this.mapParams);
             this.plot;
-            saveFigures(sprintf('fig_%s_%s', this.fileprefix, label));  
+            saveFigures(sprintf('fig_%s_%s', this.fileprefix, ip.Results.label));
         end 
-        function dsa  = deconvSpecificActivity(S0, a, b, e, f, g, p, t0, t1, t)
-            import mlswisstrace.*;
-            dsa = S0 * DeconvolvingPLaif.kAif(a, b, e, f, g, p, t0, t1, t);
-        end
-        function sa   = specificActivity(S0, a, b, e, f, g, p, t0, t1, t, krnl)
-            import mlswisstrace.*;
-            sa = conv(DeconvolvingPLaif.deconvSpecificActivity(S0, a, b, e, f, g, p, t0, t1, t), krnl);
-            sa = sa(1:length(t));
-        end 
-        function kA   = kAif(a, b, e, f, g, p, t0, t1, t)
-            import mlswisstrace.*;
-            %% exp(-PLaif1Training.LAMBDA_DECAY_15O*(t - t0)) .* PLaif1Training.Heaviside(t, t0) .* ...
-            
-            if (f > 0 && t1 > 0)
-                kA = (1 - f)*DeconvolvingPLaif.bolusFlowFractal(a, b, p, t0, t) + ...
-                          f *DeconvolvingPLaif.bolusFlowFractal(a, b, p, t0 + t1, t) + ...
-                             DeconvolvingPLaif.bolusSteadyStateTerm(e, g, t0, t);
-                return
-            end
-            if (e > 0)
-                kA = DeconvolvingPLaif.bolusFlowFractal(a, b, p, t0, t) + ...
-                     DeconvolvingPLaif.bolusSteadyStateTerm(e, g, t0, t);
-                return
-            end
-            kA = DeconvolvingPLaif.bolusFlowFractal(a, b, p, t0, t);
-        end     
-        function kConcentration(varargin)
-            error('mlswisstrace:notImplemented', 'DeconvolvingPLaif.kConcentration');
-        end
-        function this = simulateMcmc(S0, a, b, e, f, g, p, t0, t1, t, mapParams, krnl)
-            import mlswisstrace.*;     
-            sa   = DeconvolvingPLaif.specificActivity(      S0, a, b, e, f, g, p, t0, t1, t, krnl);
-            this = DeconvolvingPLaif({t}, {sa});
-            this = this.estimateParameters(mapParams) %#ok<NOPRT>
-            this.plot;
-        end   
-    end
-    
-	methods 
-		  
- 		function this = DeconvolvingPLaif(varargin)
- 			%% DeconvolvingPLaif
- 			%  Usage:  this = DeconvolvingPLaif()
- 			this = this@mlperfusion.AbstractPLaif(varargin{:});           
-            this = this.loadKernel;
-            this = this.buildJeffreysPrior;
-            this.expectedBestFitParams_ = ...
-                [this.S0 this.a this.b this.e this.f this.g this.p this.t0 this.t1]';
-        end
         
-        function this = simulateItsMcmc(this)
-            import mlswisstrace.*;
-            this = DeconvolvingPLaif.simulateMcmc(this.S0, this.a, this.b, this.e, this.f, this.g, this.p, this.t0, this.t1, this.times{1}, this.mapParams);
-        end
-        function sa   = convolveDispersion(~, sa, type, tau)
+        function sa   = convolveDispersion(sa, type, tau)
             %% CONVOLVEEMPIRICALDISPERSION adds dispersion after Bayesian estimation to account for unmeasured 
             %  dispersions such as inexact Heaviside inputs or dispersion differences between sampling (radial) artery 
             %  and the target (carotid) artery.  See also mlswisstrace.DeconvolvingPLaif.itsDeconvSpecificActivity.
@@ -172,17 +136,66 @@ classdef DeconvolvingPLaif < mlperfusion.AbstractPLaif
             sa = conv(sa, krnl);
             sa = sa(1:len);
         end
+        function dsa  = deconvSpecificActivity(S0, a, b, e, f, g, p, q, t0, t1, t)
+            import mlswisstrace.*;
+            dsa = S0 * DeconvolvingPLaif.kAif(a, b, e, f, g, p, q, t0, t1, t);
+        end
+        function sa   = specificActivity(S0, a, b, e, f, g, p, q, t0, t1, t, krnl)
+            import mlswisstrace.*;
+            sa = conv(DeconvolvingPLaif.deconvSpecificActivity(S0, a, b, e, f, g, p, q, t0, t1, t), krnl);
+            sa = sa(1:length(t));
+        end 
+        function kA   = kAif(a, b, e, f, g, p, q, t0, t1, t)
+            %% exp(-PLaif1Training.LAMBDA_DECAY_15O*(t - t0)) .* PLaif1Training.Heaviside(t, t0) .* ...
+            
+            import mlpet.*;
+            kA = PLaif.bolusFlowFractal(a, b, p, t0, t);
+            if (f > 0)
+                kA = (1 - f)*kA + f*PLaif.bolusFlowFractal(a, b, q, t0 + t1, t);
+            end
+            if (e > 0)
+                kA = (1 - e)*kA + PLaif.bolusSteadyStateTerm(e, g, t0, t);
+            end
+            
+            import mlswisstrace.*;
+            kA = DeconvolvingPLaif.convolveDispersion( ...
+                kA, DeconvolvingPLaif.EMPIRICAL_DISP_FORM, DeconvolvingPLaif.EMPIRICAL_DISP_TAU);
+        end     
+        function kConcentration(varargin)
+            error('mlswisstrace:notImplemented', 'DeconvolvingPLaif.kConcentration');
+        end
+        function this = simulateMcmc(S0, a, b, e, f, g, p, q, t0, t1, t, mapParams, krnl)
+            import mlswisstrace.*;     
+            sa   = DeconvolvingPLaif.specificActivity(S0, a, b, e, f, g, p, q, t0, t1, t, krnl);
+            this = DeconvolvingPLaif({t}, {sa});
+            this = this.estimateParameters(mapParams) %#ok<NOPRT>
+            this.plot;
+        end          
+    end
+    
+	methods 		  
+ 		function this = DeconvolvingPLaif(varargin)
+ 			%% DeconvolvingPLaif
+ 			%  Usage:  this = DeconvolvingPLaif()
+ 			this = this@mlbayesian.AbstractMcmcStrategy(varargin{:});           
+            this = this.loadKernel;
+            this.expectedBestFitParams_ = ...
+                [this.S0 this.a this.b this.e this.f this.g this.p this.q this.t0 this.t1]';
+        end
+        
+        function this = simulateItsMcmc(this)
+            import mlswisstrace.*;
+            this = DeconvolvingPLaif.simulateMcmc(this.S0, this.a, this.b, this.e, this.f, this.g, this.p, this.q, this.t0, this.t1, this.times{1}, this.mapParams);
+        end
         function wc   = itsDeconvSpecificActivity(this)
-            wc = this.convolveDispersion( ...
-                mlswisstrace.DeconvolvingPLaif.deconvSpecificActivity( ...
-                this.S0, this.a, this.b, this.e, this.f, this.g, this.p, this.t0, this.t1, this.times{1}), ...
-                this.finishingDispersionType, this.finishingDispersionTau);
+            wc = mlswisstrace.DeconvolvingPLaif.deconvSpecificActivity( ...
+                this.S0, this.a, this.b, this.e, this.f, this.g, this.p, this.q, this.t0, this.t1, this.times{1});
         end
         function wc   = itsSpecificActivity(this)
-            wc = mlswisstrace.DeconvolvingPLaif.specificActivity(this.S0, this.a, this.b, this.e, this.f, this.g, this.p, this.t0, this.t1, this.times{1}, this.kernel_);
+            wc = mlswisstrace.DeconvolvingPLaif.specificActivity(this.S0, this.a, this.b, this.e, this.f, this.g, this.p, this.q, this.t0, this.t1, this.times{1}, this.kernel_);
         end
         function ka   = itsKAif(this)
-            ka = mlperfusion.PLaif1Training.kAif(this.a, this.b, this.e, this.g, this.p, this.t0, this.t1, this.times{1});
+            ka = mlswisstrace.DeconvolvingPLaif.kAif(this.a, this.b, this.e, this.f, this.g, this.p, this.q, this.t0, this.t1, this.times{1});
         end
         function kc   = itsKConcentration(~, kc)
         end
@@ -191,13 +204,23 @@ classdef DeconvolvingPLaif < mlperfusion.AbstractPLaif
             addOptional(ip, 'mapParams', this.mapParams, @(x) isa(x, 'containers.Map'));
             parse(ip, varargin{:});
             
-            [this.S0,this.t0] = this.estimateS0t0(this.independentData{1}, this.dependentData{1});
-            
-            this = this.runMcmc(ip.Results.mapParams); %, 'keysToVerify', {'S0' 'a' 'b' 'e' 'f' 'g' 'p' 't0'});
+            [this.S0,this.t0] = mlpet.PLaif.estimateS0t0(this.independentData{1}, this.dependentData{1});
+            this = this.runMcmc(ip.Results.mapParams); %, 'keysToVerify', {'S0' 'a' 'b' 'e' 'f' 'g' 'p' 'q' 't0' 't1'});
         end
-        function ed   = estimateDataFast(this, S0, a, b, e, f, g, p, t0, t1)
-            ed{1} = this.specificActivity(           S0, a, b, e, f, g, p, t0, t1, this.times{1}, this.kernel_);
+        function ed   = estimateDataFast(this, S0, a, b, e, f, g, p, q, t0, t1)
+            ed{1} = this.specificActivity(     S0, a, b, e, f, g, p, q, t0, t1, this.times{1}, this.kernel_);
         end
+        function ps   = adjustParams(this, ps)
+            theParams = this.theParameters;
+            if (this.mapParams('b').fixed || this.mapParams('g').fixed || this.e < eps)
+                return
+            end
+            if (ps(theParams.paramsIndices('b')) < ps(theParams.paramsIndices('g')))
+                tmp                              = ps(theParams.paramsIndices('g'));
+                ps(theParams.paramsIndices('g')) = ps(theParams.paramsIndices('b'));
+                ps(theParams.paramsIndices('b')) = tmp;
+            end
+        end  
 
         function plot(this, varargin)
             figure;
@@ -215,38 +238,43 @@ classdef DeconvolvingPLaif < mlperfusion.AbstractPLaif
             switch (par)
                 case 'S0'
                     for v = 1:length(vars)
-                        args{v} = { vars(v) this.a  this.b  this.e  this.f  this.g  this.p  this.t0  this.t1 ...
-                                    this.independentData{1} this.independentData{2} };  %#ok<AGROW>
+                        args{v} = { vars(v) this.a  this.b  this.e  this.f  this.g  this.p  this.q  this.t0  this.t1 ...
+                                    this.independentData{1} this.kernel };  %#ok<AGROW>
                     end
                 case 'a'
                     for v = 1:length(vars)
-                        args{v} = { this.S0 vars(v) this.b  this.e  this.f  this.g  this.p  this.t0  this.t1 ...
-                                    this.independentData{1} this.independentData{2} };   %#ok<AGROW>
+                        args{v} = { this.S0 vars(v) this.b  this.e  this.f  this.g  this.p  this.q  this.t0  this.t1 ...
+                                    this.independentData{1} this.kernel };   %#ok<AGROW>
                     end
                 case 'b'
                     for v = 1:length(vars)
-                        args{v} = { this.S0 this.a  vars(v) this.e  this.f  this.g  this.p  this.t0  this.t1 ...
-                                    this.independentData{1} this.independentData{2} };   %#ok<AGROW>
+                        args{v} = { this.S0 this.a  vars(v) this.e  this.f  this.g  this.p  this.q  this.t0  this.t1 ...
+                                    this.independentData{1} this.kernel };   %#ok<AGROW>
                     end
                 case 'e'
                     for v = 1:length(vars)
-                        args{v} = { this.S0 this.a  this.b  vars(v) this.f  this.g  this.p  this.t0  this.t1 ...
-                                    this.independentData{1} this.independentData{2} };   %#ok<AGROW>
+                        args{v} = { this.S0 this.a  this.b  vars(v) this.f  this.g  this.p  this.q  this.t0  this.t1 ...
+                                    this.independentData{1} this.kernel };   %#ok<AGROW>
                     end
                 case 'g'
                     for v = 1:length(vars)
-                        args{v} = { this.S0 this.a  this.b  this.e  this.f  vars(v) this.p  this.t0  this.t1 ...
-                                    this.independentData{1} this.independentData{2} };   %#ok<AGROW>
+                        args{v} = { this.S0 this.a  this.b  this.e  this.f  vars(v) this.p  this.q  this.t0  this.t1 ...
+                                    this.independentData{1} this.kernel };   %#ok<AGROW>
                     end
                 case 'p'
                     for v = 1:length(vars)
-                        args{v} = { this.S0 this.a  this.b  this.e  this.f  this.g  vars(v) this.t0  this.t1 ...
-                                    this.independentData{1} this.independentData{2} };   %#ok<AGROW>
+                        args{v} = { this.S0 this.a  this.b  this.e  this.f  this.g  vars(v) this.q  this.t0  this.t1 ...
+                                    this.independentData{1} this.kernel };   %#ok<AGROW>
+                    end
+                case 'q'
+                    for v = 1:length(vars)
+                        args{v} = { this.S0 this.a  this.b  this.e  this.f  this.g  this.p  vars(v) this.t0  this.t1 ...
+                                    this.independentData{1} this.kernel };   %#ok<AGROW>
                     end
                 case 't0'
                     for v = 1:length(vars)
-                        args{v} = { this.S0 this.a  this.b  this.e  this.f  this.g  this.p  vars(v)  this.t1 ...
-                                    this.independentData{1} this.independentData{2} };   %#ok<AGROW>
+                        args{v} = { this.S0 this.a  this.b  this.e  this.f  this.g  this.p  this.q  vars(v)  this.t1 ...
+                                    this.independentData{1} this.kernel };   %#ok<AGROW>
                     end
             end
             this.plotParArgs(par, args, vars);
@@ -258,17 +286,14 @@ classdef DeconvolvingPLaif < mlperfusion.AbstractPLaif
     properties (Access = private)
         expectedBestFitParams_
         kernel_
-        kernelRange_ = 12:40
-        kernelBestFilename_ = fullfile(getenv('HOME'), 'MATLAB-Drive/mlarbelaez/src/+mlarbelaez/kernelBest.mat')
+        kernelRange_ = 1:75
+        kernelBestFilename_ = fullfile(getenv('HOME'), 'MATLAB-Drive/mlarbelaez/data/kernelBest.mat')
     end
     
     methods (Access = private)
         function this = loadKernel(this)
             load(this.kernelBestFilename_);
-            this.kernel_ = kernelBest(this.kernelRange_);
-            this.kernel_ = this.convolveDispersion( ...
-                this.kernel_, this.empiricalDispersionType, this.empiricalDispersionTau);
-            this.kernel_ = this.kernel_ / sum(this.kernel_);             
+            this.kernel_ = kernelBest(this.kernelRange_);    
         end
     end    
 
