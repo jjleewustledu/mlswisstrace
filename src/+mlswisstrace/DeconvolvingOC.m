@@ -61,7 +61,7 @@ classdef DeconvolvingOC < mlswisstrace.DeconvolvingPLaif
             this.t1 = 0; % recirculation starts at t0 + t1
             this = this.estimateParameters(this.mapParams);
             this.plot;
-            %saveFigures(sprintf('fig_%s_%s', this.fileprefix, ip.Results.label));  
+            saveFigures(sprintf('fig_%s_%s', this.fileprefix, ip.Results.label));  
         end
         function dc   = decayCorrection(times)
             rad = mlpet.Radionuclides('[15O]');
