@@ -13,9 +13,9 @@ classdef Test_Twilite < matlab.unittest.TestCase
  	%% It was developed on Matlab 9.1.0.441655 (R2016b) for MACI64. 	
 
 	properties
-        doseAdminDatetimeOC = datetime(2016,9,23,10,47,33, 'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE);
-        doseAdminDatetimeOO = datetime(2016,9,23,11,13,5,  'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE);
-        doseAdminDatetimeHO = datetime(2016,9,23,11,30,1,  'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE);
+        doseAdminDatetimeOC = datetime(2016,9,23,10,47,33, 'TimeZone', mlkinetics.Timing.PREFERRED_TIMEZONE);
+        doseAdminDatetimeOO = datetime(2016,9,23,11,13,5,  'TimeZone', mlkinetics.Timing.PREFERRED_TIMEZONE);
+        doseAdminDatetimeHO = datetime(2016,9,23,11,30,1,  'TimeZone', mlkinetics.Timing.PREFERRED_TIMEZONE);
         
         fqfn    = fullfile(getenv('HOME'), 'Documents/private/HYGLY28_VISIT_2_23sep2016_D1.crv')
         fqfnman = fullfile(getenv('HOME'), 'Documents/private/CCIRRadMeasurements 2016sep23.xlsx')
@@ -44,11 +44,9 @@ classdef Test_Twilite < matlab.unittest.TestCase
             this.verifyEqual(this.testObj.indexF, 286);
             this.verifyEqual(this.testObj.time0, 0);
             this.verifyEqual(this.testObj.timeF, 285);
-            this.verifyEqual(this.testObj.timeDuration, 285);
+            this.verifyEqual(this.testObj.timeWindow, 285);
             this.verifyEqual(this.testObj.times(1), 0);
             this.verifyEqual(this.testObj.times(end), 285);
-            this.verifyEqual(this.testObj.timeMidpoints(1),   0.5, 'RelTol', 1e-14);
-            this.verifyEqual(this.testObj.timeMidpoints(end), 285.5);
             this.verifyEqual(this.testObj.taus(1),   1, 'RelTol', 1e-14);
             this.verifyEqual(this.testObj.taus(end), 1);
             this.verifyEqual(this.testObj.isotope, '15O');
@@ -58,7 +56,6 @@ classdef Test_Twilite < matlab.unittest.TestCase
             this.verifyEqual(size(this.testObj.channel2), [1 286]);
             this.verifyEqual(size(this.testObj.coincidence), [1 286]);
             this.verifyEqual(size(this.testObj.times), [1 286]);
-            this.verifyEqual(size(this.testObj.timeMidpoints), [1 286]);
             this.verifyEqual(size(this.testObj.taus), [1 286]);
             this.verifyEqual(size(this.testObj.counts), [1 286]);
             this.verifyEqual(size(this.testObj.activity), [1 286]);
@@ -76,8 +73,6 @@ classdef Test_Twilite < matlab.unittest.TestCase
         function test_specificActivity(this)
         end
         function test_timeInterpolants(this)
-        end
-        function test_timeMidpointInterpolants(this)
         end
         function test_shiftTimes(this)
         end

@@ -12,7 +12,7 @@ classdef Test_TwiliteBuilder < matlab.unittest.TestCase
  	
 	properties
         ccirRadMeasurementsDir = fullfile(getenv('HOME'), 'Documents', 'private', '')
-        doseAdminDatetimeHO = datetime(2016,9,23,11,32-2,25-24, 'TimeZone', mldata.TimingData.PREFERRED_TIMEZONE)
+        doseAdminDatetimeHO = datetime(2016,9,23,11,32-2,25-24, 'TimeZone',mlkinetics.Timing.PREFERRED_TIMEZONE)
  		registry
         sessd
         sessf = 'HYGLY28'
