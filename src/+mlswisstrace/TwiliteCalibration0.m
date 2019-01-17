@@ -1,4 +1,4 @@
-classdef TwiliteCalibration < handle & mlswisstrace.Twilite
+classdef TwiliteCalibration0 < mlswisstrace.Twilite
 	%% TWILITECALIBRATION  
 
 	%  $Revision$
@@ -8,7 +8,7 @@ classdef TwiliteCalibration < handle & mlswisstrace.Twilite
  	
     
 	methods 
- 		function this = TwiliteCalibration(varargin)
+ 		function this = TwiliteCalibration0(varargin)
  			%% TWILITECALIBRATION
        
  			this = this@mlswisstrace.Twilite(varargin{:}, 'doMeasureBaseline', false);            
