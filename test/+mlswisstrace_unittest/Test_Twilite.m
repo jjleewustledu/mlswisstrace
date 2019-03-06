@@ -24,7 +24,6 @@ classdef Test_Twilite < matlab.unittest.TestCase
         sessd
         sessp = '/data/nil-bluearc/raichle/PPGdata/jjlee2/HYGLY28'
  		testObj
-        vnumber = 2
         tracer = 'HO'
  	end
 
@@ -84,7 +83,7 @@ classdef Test_Twilite < matlab.unittest.TestCase
 		function setupTwilite(this)
  			import mlswisstrace.*;
             this.sessd = mlraichle.SessionData( ...
-                'studyData', mlraichle.StudyData', 'sessionPath', this.sessp, 'vnumber', this.vnumber, 'tracer', this.tracer);
+                'studyData', mlraichle.StudyData', 'sessionPath', this.sessp, 'tracer', this.tracer);
             this.mand = mlsiemens.XlsxObjScanData( ...
                 'sessionData', this.sessd, ...
                 'fqfilename', this.fqfnman);
