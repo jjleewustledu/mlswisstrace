@@ -52,7 +52,7 @@ classdef PLaif < mlperfusion.AbstractPLaif
             parse(ip, varargin{:});
             
             studyd = mlraichle.StudyData;
-            studyd.subjectsFolder = 'jjlee2';
+            studyd.subjectsDir = fullfile(getenv('PPG'), 'jjlee2', '');
             sessd = mlraichle.SessionData( ...
                 'studyData', studyd, 'sessionPath', fullfile(studyd.subjectsDir, 'HYGLY28', ''));
             sessd.tracer = 'FDG';
