@@ -229,7 +229,7 @@ classdef AbstractTwilite < mlpet.AbstractAifData
             tt = this.tableTwilite_;
             dt_ = datetime( ...
                 tt.year, tt.month, tt.day, tt.hour, tt.min, tt.sec, ...
-                'TimeZone', mlkinetics.Timing.PREFERRED_TIMEZONE);
+                'TimeZone', mlpipeline.ResourcesRegistry.instance().preferredTimeZone);
             dt_ = ensureRowVector(dt_);
         end
         function s    = tableTwilite2times(this)
