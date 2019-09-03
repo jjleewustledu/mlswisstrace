@@ -37,7 +37,7 @@ classdef Test_TwiliteBuilder < matlab.unittest.TestCase
         function test_buildCalibrator(this)
             this.testObj = this.testObj.buildCalibrator;
             calibrator   = this.testObj.product;
-            this.verifyClass(calibrator, 'mlswisstrace.TwiliteCalibration0');
+            this.verifyClass(calibrator, 'mlswisstrace.TwiliteCalibration');
             calibrator.plot;
             calibrator.plotCounts;
             calibrator.plotSpecificActivity; % calibrator.counts2specificActivity == nan
