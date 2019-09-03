@@ -1,4 +1,4 @@
-classdef AbstractTwilite < mlpet.AbstractAifData
+classdef (Abstract) AbstractTwilite < mlpet.AbstractAifData
 	%% ABSTRACTTWILITE  
 
 	%  $Revision$
@@ -19,6 +19,10 @@ classdef AbstractTwilite < mlpet.AbstractAifData
         fqCrvCal
         invEfficiency % outer-most efficiency for s.a. determined by cross-calibration, synonymous with counts2SpecificActivity
         tableTwilite % all stored data
+    end
+    
+    methods (Abstract)
+        this = updateTimingData(this, aDatetime)
     end
 
 	methods
@@ -67,6 +71,7 @@ classdef AbstractTwilite < mlpet.AbstractAifData
         end
         function this = set.invEfficiency(this, s)
             this.counts2specificActivity = s;
+            this = this.updateActivities;
         end
         function g    = get.tableTwilite(this)
             g = this.tableTwilite_;
@@ -74,7 +79,7 @@ classdef AbstractTwilite < mlpet.AbstractAifData
                 
         %% 
              
-        function this = buildCalibrated(this)
+        function this = calibrated(this)
             bldr = mlswisstrace.TwiliteBuilder( ...
                 'fqfilename', this.fqCrv, ...
                 'fqfilenameCalibrator', this.fqCrvCal, ...
@@ -160,7 +165,7 @@ classdef AbstractTwilite < mlpet.AbstractAifData
     %% PROTECTED
     
     properties (Access = protected)
-        counts2specificActivity_ = nan
+        counts2specificActivity_
         tableTwilite_
         timingData_
     end
@@ -194,16 +199,17 @@ classdef AbstractTwilite < mlpet.AbstractAifData
         function this = readtable(this, varargin)
             ip = inputParser;
             addOptional(ip, 'fqfnCrv', this.fqfilename, @(x) lexist(x, 'file'));
-            parse(ip, varargin{:});            
+            parse(ip, varargin{:}); 
+            ipr = ip.Results;
             
             warning('off', 'MATLAB:table:ModifiedVarnames');   
             warning('off', 'MATLAB:table:ModifiedAndSavedVarnames');  
             
-            assert(lexist(ip.Results.fqfnCrv), ...
-                'mlswisstraceAbstractTwilite.readtable could not open %s', ip.Results.fqfnCrv);
-            assert(~isdir(ip.Results.fqfnCrv), ...
-                'mlswisstraceAbstractTwilite.readtable received a path without expected file: %s', ip.Results.fqfnCrv);
-            tbl = readtable(ip.Results.fqfnCrv, ...
+            assert(lexist(ipr.fqfnCrv), ...
+                'mlswisstraceAbstractTwilite.readtable could not open %s', ipr.fqfnCrv);
+            assert(~isdir(ipr.fqfnCrv), ...
+                'mlswisstraceAbstractTwilite.readtable received a path without expected file: %s', ipr.fqfnCrv);
+            tbl = readtable(ipr.fqfnCrv, ...
                 'FileType', 'text', 'ReadVariableNames', false, 'ReadRowNames', false);
             tbl.Properties.VariableNames{'Var1'} = 'year';
             tbl.Properties.VariableNames{'Var2'} = 'month';
@@ -245,52 +251,11 @@ classdef AbstractTwilite < mlpet.AbstractAifData
         function c    = tableTwilite2specificActivity(this)
             c = this.counts2specificActivity * this.tableTwilite2counts;
         end
-        function this = updateActivities(this)
-            %% UPDATEACTIVITIES progressively shrinks this.timingData_ by imposing time limits from
-            %  this.doseAdminDatetime.
-            
-            this = this.updateTimingData;
-            this.counts_ = this.timingData_.activity;
-            this.specificActivity_ = this.counts2specificActivity_*this.counts_;
-        end
-        function this = updateTimingData(this)
-            this.timingData_ = this.timingData_.findBolusFrom(this.doseAdminDatetime);
-        end
         
  		function this = AbstractTwilite(varargin)
  			%% ABSTRACTTWILITE
-            %  @param named doseAdminDatetime refers to the true time for the selected tracer.
-            %  See also mlswisstrace.AbstractTwilite.updateTimmingData.
 
  			this = this@mlpet.AbstractAifData(varargin{:});
-            
-            ip = inputParser;
-            ip.KeepUnmatched = true;
-            addParameter(ip, 'dt', 1,                 @isnumeric);
-            addParameter(ip, 'doseAdminDatetime', [], @isdatetime);
-            addParameter(ip, 'invEfficiency', nan,    @isnumeric);
-            addParameter(ip, 'aifTimeShift', 0,       @isnumeric); % @deprecated            
-            addParameter(ip, 'expectedBaseline', 92,  @isnumeric);
-            addParameter(ip, 'doMeasureBaseline', true, @islogical);
-            parse(ip, varargin{:});
-            this = this.readtable;
-            this.timingData_ = mlpet.MultiBolusData( ...
-                'activity', this.tableTwilite2coincidence, ...
-                'times', this.tableTwilite2datetime, ...
-                'dt', ip.Results.dt, ...
-                'expectedBaseline', ip.Results.expectedBaseline, ...
-                'doMeasureBaseline', ip.Results.doMeasureBaseline, ...
-                'radionuclide', mlpet.Radionuclides(this.isotope));
-            if (~isempty(ip.Results.doseAdminDatetime))
-                assert(ip.Results.doseAdminDatetime > this.timingData_.datetime0, ...
-                    'mlswisstrace:timingInconsistencyErr', 'AbstractTwilite.ctor');
-            end
-            this.counts2specificActivity_ = ip.Results.invEfficiency;
-            
-            this = this.updateActivities;
-            this = this.updatePropertyDecayCorrection;
-            this.isDecayCorrected_ = false;
-            this.isPlasma = false;
  		end
     end
 
