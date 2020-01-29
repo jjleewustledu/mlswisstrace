@@ -78,7 +78,23 @@ classdef (Abstract) AbstractTwilite < mlpet.AbstractAifData
         end
                 
         %% 
-             
+           
+        function vv   = arterialCatheterVisibleVolume(this)
+            %% approx. visible volume of 1mm outer-diam. catheter fed into Twilite
+            
+            entry = this.manualData_.twilite.TWILITE(1);
+            entry = entry{1};
+            assert(ischar(entry));
+            if (lstrfind(entry, 'Medex REF 536035')) % 152.4 cm  Ext. W/M/FLL Clamp APV = 1.1 mL; cut at 40 cm
+                vv = 0.14; % mL
+                return
+            end
+            if (lstrfind(entry, 'Braun ref V5424')) % 48 cm len, 0.642 mL priming vol
+                vv = 0.27; % mL
+                return
+            end
+            error('mpet:unsupportedParamValue', 'AbstractTwilite:arterialCatheterVisibleVolume');
+        end  
         function this = calibrated(this)
             bldr = mlswisstrace.TwiliteBuilder( ...
                 'fqfilename', this.fqCrv, ...
@@ -154,48 +170,6 @@ classdef (Abstract) AbstractTwilite < mlpet.AbstractAifData
                 this.time0, this.timeF, this.invEfficiency), ...
                 'Interpreter', 'none');
         end
-        function        save(~)
-            error('mlswisstrace:notImplemented', 'Twilite.save');
-        end
-        function v    = visibleVolume(this)
-            v = this.arterialCatheterVisibleVolume*ones(size(this.times)); % empirically measured on Twilite
-        end
- 	end     
-    
-    %% PROTECTED
-    
-    properties (Access = protected)
-        counts2specificActivity_
-        tableTwilite_
-        timingData_
-    end
-    
-    methods (Access = protected)
-        function vv   = arterialCatheterVisibleVolume(this)
-            %% approx. visible volume of 1mm outer-diam. catheter fed into Twilite
-            
-            entry = this.manualData_.twilite.TWILITE(1);
-            entry = entry{1};
-            assert(ischar(entry));
-            if (lstrfind(entry, 'Medex REF 536035')) % 152.4 cm  Ext. W/M/FLL Clamp APV = 1.1 mL; cut at 40 cm
-                vv = 0.14; % mL
-                return
-            end
-            if (lstrfind(entry, 'Braun ref V5424')) % 48 cm len, 0.642 mL priming vol
-                vv = 0.27; % mL
-                return
-            end
-            error('mpet:unsupportedParamValue', 'AbstractTwilite:arterialCatheterVisibleVolume');
-        end
-        function tf   = isSelectedTableRow(this)
-            tt2dt = this.tableTwilite2datetime;
-            if (isempty(this.timingData_) || isempty(this.timingData_.datetimeF))
-                tf = this.datetime0 <= tt2dt;
-                return
-            end
-            tf = this.timingData_.datetime0 <= tt2dt & ...
-                 tt2dt <= this.timingData_.datetimeF;
-        end
         function this = readtable(this, varargin)
             ip = inputParser;
             addOptional(ip, 'fqfnCrv', this.fqfilename, @(x) lexist(x, 'file'));
@@ -207,7 +181,7 @@ classdef (Abstract) AbstractTwilite < mlpet.AbstractAifData
             
             assert(lexist(ipr.fqfnCrv), ...
                 'mlswisstraceAbstractTwilite.readtable could not open %s', ipr.fqfnCrv);
-            assert(~isdir(ipr.fqfnCrv), ...
+            assert(~isfolder(ipr.fqfnCrv), ...
                 'mlswisstraceAbstractTwilite.readtable received a path without expected file: %s', ipr.fqfnCrv);
             tbl = readtable(ipr.fqfnCrv, ...
                 'FileType', 'text', 'ReadVariableNames', false, 'ReadRowNames', false);
@@ -230,6 +204,38 @@ classdef (Abstract) AbstractTwilite < mlpet.AbstractAifData
             warning('on', 'MATLAB:table:ModifiedAndSavedVarnames');
             
             this.isPlasma = false;                   
+        end
+        function        save(~)
+            error('mlswisstrace:notImplemented', 'Twilite.save');
+        end
+        function this = updateActivities(this)
+            %% UPDATEACTIVITIES updates counts_ with timingData_.activity and specificActivity_ with counts2specificActivity_.
+            
+            this.counts_ = this.timingData_.activity;
+            this.specificActivity_ = this.counts2specificActivity_*this.counts_;
+        end 
+        function v    = visibleVolume(this)
+            v = this.arterialCatheterVisibleVolume*ones(size(this.times)); % empirically measured on Twilite
+        end
+ 	end     
+    
+    %% PROTECTED
+    
+    properties (Access = protected)
+        counts2specificActivity_
+        tableTwilite_
+        timingData_
+    end
+    
+    methods (Access = protected)
+        function tf   = isSelectedTableRow(this)
+            tt2dt = this.tableTwilite2datetime;
+            if (isempty(this.timingData_) || isempty(this.timingData_.datetimeF))
+                tf = this.datetime0 <= tt2dt;
+                return
+            end
+            tf = this.timingData_.datetime0 <= tt2dt & ...
+                 tt2dt <= this.timingData_.datetimeF;
         end
         function dt_  = tableTwilite2datetime(this)
             tt = this.tableTwilite_;
@@ -256,6 +262,33 @@ classdef (Abstract) AbstractTwilite < mlpet.AbstractAifData
  			%% ABSTRACTTWILITE
 
  			this = this@mlpet.AbstractAifData(varargin{:});
+            
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            addParameter(ip, 'dt', 1,                 @isnumeric);
+            addParameter(ip, 'invEfficiency', 1,    @isnumeric);
+            addParameter(ip, 'expectedBaseline', 92,  @isnumeric);
+            addParameter(ip, 'doMeasureBaseline', true, @islogical);
+            parse(ip, varargin{:});
+            ipr = ip.Results;
+            
+            this = this.readtable;
+            ttdt = this.tableTwilite2datetime;
+            this.timingData_ = mlpet.MultiBolusData( ...
+                'activity', this.tableTwilite2coincidence, ...
+                'times', ttdt, ...
+                'datetimeMeasured', ttdt(1), ...
+                'dt', ipr.dt, ...
+                'expectedBaseline', ipr.expectedBaseline, ...
+                'doMeasureBaseline', ipr.doMeasureBaseline, ...
+                'radionuclide', mlpet.Radionuclides(this.isotope));
+            this.counts2specificActivity_ = ipr.invEfficiency;    
+            
+            this = this.updateTimingData(this.doseAdminDatetime); 
+            this = this.updateActivities;
+            this.isDecayCorrected_ = false;
+            this.isPlasma = false;            
+            this = this.updateDecayCorrection;
  		end
     end
 

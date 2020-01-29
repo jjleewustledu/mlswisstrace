@@ -49,12 +49,6 @@ classdef TwiliteCalibration < mlswisstrace.AbstractTwilite
             
             this.timingData_ = this.timingData_.findCalibrationFrom(aDatetime);
         end
-        function this = updateActivities(this)
-            %% UPDATEACTIVITIES updates counts_ from timingData_ and specificActivity_ with counts2specificActivity_.
-            
-            this.counts_ = this.timingData_.activity;
-            this.specificActivity_ = this.counts2specificActivity_*this.counts_;
-        end 
         
  		function this = TwiliteCalibration(varargin)
  			%% TWILITECALIBRATION
@@ -64,33 +58,6 @@ classdef TwiliteCalibration < mlswisstrace.AbstractTwilite
             %  @param doMeasureBaseline.
        
  			this = this@mlswisstrace.AbstractTwilite(varargin{:});
-            
-            ip = inputParser;
-            ip.KeepUnmatched = true;
-            addParameter(ip, 'dt', 1,                 @isnumeric);
-            addParameter(ip, 'invEfficiency', 1,    @isnumeric);
-            addParameter(ip, 'expectedBaseline', 92,  @isnumeric);
-            addParameter(ip, 'doMeasureBaseline', true, @islogical);
-            parse(ip, varargin{:});
-            ipr = ip.Results;
-            
-            this = this.readtable;
-            ttdt = this.tableTwilite2datetime;
-            this.timingData_ = mlpet.MultiBolusData( ...
-                'activity', this.tableTwilite2coincidence, ...
-                'times', ttdt, ...
-                'datetimeMeasured', ttdt(1), ...
-                'dt', ipr.dt, ...
-                'expectedBaseline', ipr.expectedBaseline, ...
-                'doMeasureBaseline', ipr.doMeasureBaseline, ...
-                'radionuclide', mlpet.Radionuclides(this.isotope));
-            this.counts2specificActivity_ = ipr.invEfficiency;    
-            
-            this = this.updateTimingData(this.doseAdminDatetime); 
-            this = this.updateActivities;
-            this.isDecayCorrected_ = false;
-            this.isPlasma = false;            
-            this = this.updateDecayCorrection;
             this.isDecayCorrected = true;
  		end
     end 
