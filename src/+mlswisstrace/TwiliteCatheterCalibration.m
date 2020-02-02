@@ -6,6 +6,10 @@ classdef TwiliteCatheterCalibration < mlswisstrace.AbstractTwilite
  	%  last modified $LastChangedDate$ and placed into repository /Users/jjlee/MATLAB-Drive/mlswisstrace/src/+mlswisstrace.
  	%% It was developed on Matlab 9.2.0.538062 (R2017a) for MACI64.  Copyright 2017 John Joowon Lee.
  	    
+    properties (Dependent)
+        manualData
+    end
+    
     methods (Static)
         function this = create(varargin)
             this = mlswisstrace.TwiliteCatheterCalibration.createFromDate(varargin{:});
@@ -92,9 +96,38 @@ classdef TwiliteCatheterCalibration < mlswisstrace.AbstractTwilite
             
             save('mlswisstrace.TwiliteCatheterCalibration.calibrateCatheter.mat')
         end
+        function calibrateCatheter2()
+            import mlswisstrace.*
+            
+            tcc = TwiliteCatheterCalibration.create();
+            tbl = tcc.tabulateCalibrationMeasurements();
+            disp(tcc)
+            %tcc.plotCounts()
+            
+            results = cell(1, size(tbl,1));
+            for it = 1:size(tbl,1)
+                disp(tbl(it,:))
+                cath = CatheterModel2( ...
+                    'calibrationData', tcc, ...
+                    'calibrationTable', tbl(it,:), ...
+                    'sigma0', 100, ...
+                    'modelName', 'GeneralizedGammaDistributionP');
+                main = cath.calibrate();
+                results{it} = main.apply.results;
+            end
+        end
     end
     
 	methods 
+        
+        %% GET
+        
+        function g = get.manualData(this)
+            g = this.manualData_;
+        end
+        
+        %%
+        
         function [box,idx0,idxF] = boxcar(this, varargin)
             %% 
             %  @return Twilite counts/s
@@ -147,7 +180,7 @@ classdef TwiliteCatheterCalibration < mlswisstrace.AbstractTwilite
         function m    = median_nobaseline(this)
             m = median(this.timingData_.activity);
         end
-        function plot(this, t, qs0, qs1)            
+        function        plot(this, t, qs0, qs1)
             figure
             plot(t, qs0, '-+', ...
                  t, qs1, ':o')
@@ -200,42 +233,25 @@ classdef TwiliteCatheterCalibration < mlswisstrace.AbstractTwilite
             mdl = struct('params', params, 'params1', params1, 'sse', sse, 'exitflag', exitflag, 'output', output);
             disp(mdl)
             this.plot(t, q, ipr.catheterModel.synthesis(params1, box, t))
-        end
-        function mdl  = solveCatheterModel2(this, varargin)
-            ip = inputParser;
-            addParameter(ip, 'catheterModel', [], @(x) isa(x, 'mlswisstrace.CatheterModel2')
-            addParameter(ip, 'tracerModel', [], @(x) isa(x, 'mlpet.TracerModel'))
-            addParameter(ip, 'inflow', NaT, @isdatetime)
-            addParameter(ip, 'outflow', NaT, @isdatetime)
-            addParameter(ip, 'observations', NaT, @isdatetime)
-            addParameter(ip, 'sigma0', 200, @isnumeric); % cps
-            addParameter(ip, 'params0', [], @isnumeric)
-            addParameter(ip, 'ub', [], @isnumeric)
-            addParameter(ip, 'lb', [], @isnumeric)
-            parse(ip, varargin{:})   
-            ipr = ip.Results;
-            
-            [t,dt0] = this.datetimes2times(ipr.observations); % t = [0 1 2 ...], dt0 := datetime(t(1))
-            [box,idx0,idxF] = this.boxcar( ...
-                'tracerModel', ipr.tracerModel, ...
-                'times', t, ...
-                'datetime0', dt0, ...
-                'inflow', ipr.inflow, ...
-                'outflow', ipr.outflow);
-            
-            %box = 0.5650 * box;
-            
-            q = this.coincidence(idx0:idxF);            
-            params = ipr.params0 * (0.5 + rand());
- 			[params1,logZ,H,output] = ipr.catheterModel.run(params, ipr.lb, ipr.ub, box, t, q, ipr.sigma0);
-            
-            mdl = struct('params', params, 'params1', params1, 'logZ', logZ, 'H', H, 'output', output);
-            disp(mdl)
-            this.plot(t, q, ipr.catheterModel.synthesis(params1, box, t))
-        end
-        
+        end        
         function s    = std_nobaseline(this)
             s = std(this.timingData_.activity);
+        end
+        function tbl  = tabulateCalibrationMeasurements(this)
+            hh =  [16    17 17 17   19 19 19   19 20 20 20 20]';
+            mm =  [58    42 46 50    7 11 15   59  3  7 11 15]';
+            observations0 = datetime(2019,9,30,hh,mm,0, 'TimeZone', 'America/Chicago');
+            hh1 = [16    17 17 17   19 19 19   20 20 20 20 20]';
+            mm1 = [59    43 47 51    8 12 16    0  4  8 12 16]';
+            ss1 = [ 8     0  0  0    0  0  0    0  0  0  0  0]';
+            inflow = datetime(2019,9,30,hh1,mm1,ss1, 'TimeZone', 'America/Chicago');
+            hh2 = [17    17 17 17   19 19 19   20 20 20 20 20]';
+            mm2 = [ 3    45 49 53   10 14 18    2  6 10 14 18]';
+            outflow = datetime(2019,9,30,hh2,mm2,0, 'TimeZone', 'America/Chicago');
+            observationsF = outflow + minutes(2);
+            observations  = [observations0 observationsF];
+            tbl = table(observations, inflow, outflow, ...
+                'VariableNames', {'observations', 'inflow', 'outflow'});
         end
         function this = updateTimingData(this, aDatetime)
             %% UPDATETIMINGDATA progressively shrinks this.timingData_ by imposing time limits based on
