@@ -6,6 +6,11 @@ classdef CatheterModel2 < handle & mlnest.GammaDistributions
  	%  last modified $LastChangedDate$ and placed into repository /Users/jjlee/MATLAB-Drive/mlswisstrace/src/+mlswisstrace.
  	%% It was developed on Matlab 9.7.0.1261785 (R2019b) Update 3 for MACI64.  Copyright 2020 John Joowon Lee.
  	
+    properties (Constant)
+        fixed_baseline = 149
+        fixed_scale = 0.5611
+    end
+    
 	properties
  		box
         idx0
@@ -13,25 +18,21 @@ classdef CatheterModel2 < handle & mlnest.GammaDistributions
  	end
 
 	methods (Static)
+        function main = calibrate(cathModel)
+            main = mlswisstrace.CatheterModel2.run(cathModel);
+        end
+        function main = run(cathModel)
+            assert(isa(cathModel, 'mlswisstrace.CatheterModel2'))
+            main = mlnest.NestedSamplingMain(cathModel);
+        end
     end
     
     methods        
-        function main = calibrate(this)
-            main = mlnest.NestedSamplingMain(this);
-        end
         function est  = Estimation(this, Obj)
             Obn = this.Obj2native(Obj);
             est = this.fixed_scale*conv(this.estimatorGamma_(Obn), this.box) + this.fixed_baseline;
             est = est(1:length(this.timeInterpolants));
             est(est < 0) = 0;            
-        end
-        function plot(~, t, q0, q)
-            figure
-            plot(t, q0, '-+', ...
-                 t, q, ':o')
-            legend('measured', 'estimated')
-            xlabel('times / s')
-            ylabel('activity / cps')
         end
         
  		function this = CatheterModel2(varargin)
@@ -53,13 +54,14 @@ classdef CatheterModel2 < handle & mlnest.GammaDistributions
             this.calibrationData_ = ipr.calibrationData;
             this.calibrationTable_ = ipr.calibrationTable;                        
             this.map = containers.Map;
-            this.map('baseline') = struct('min', 120,    'max', 160);
-            this.map('scale')    = struct('min',   0.3,  'max',   3);
-            this.map('a')        = struct('min',   0.1,  'max',  10);
-            this.map('b')        = struct('min',   0.01, 'max',  20);
-            this.map('p')        = struct('min',   0.2,  'max',   2);
-            this.map('t0')       = struct('min', -20,    'max',  20);
-            this.map('w')        = struct('min',  -1,    'max',   1);            
+%           this.map('baseline') = struct('min', 148,    'max', 150,   'init', 149);
+%           this.map('scale')    = struct('min',   0.5,  'max',   0.7, 'init',   0.56);
+            this.map('a')        = struct('min',   0.1,  'max',   0.6, 'init',   0.57);
+            this.map('b')        = struct('min',   1,    'max',   5,   'init',   3.5);
+            this.map('p')        = struct('min',   0.3,  'max',   0.6, 'init',   0.45);
+%           this.map('t0')       = struct('min',   9,    'max',  11,   'init',  10);
+            this.map('w')        = struct('min',   0.1,  'max',   1,   'init',   0.3);
+            
             [this.timeInterpolants,dt0] = this.observations2times(this.calibrationTable_.observations);
             [this.box,this.idx0,this.idxF] = this.boxcar( ...
                 'tracerModel', this.tracerModel, ...
@@ -68,11 +70,10 @@ classdef CatheterModel2 < handle & mlnest.GammaDistributions
                 'inflow', this.calibrationTable_.inflow, ...
                 'outflow', this.calibrationTable_.outflow);
             this.Measurement = this.calibrationData_.coincidence(this.idx0:this.idxF);
-            this.sigma0 = 100;
- 		end
+        end
     end
     
-    % PRIVATE
+    %% PRIVATE
     
     properties (Access = private)
         calibrationData_
