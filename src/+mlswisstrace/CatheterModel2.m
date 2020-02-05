@@ -20,7 +20,8 @@ classdef CatheterModel2 < handle & mlnest.GammaDistributions
             main = mlnest.NestedSamplingMain(this);
         end
         function est  = Estimation(this, Obj)
-            est = Obj.scale*conv(this.estimatorGamma_(Obj), this.box) + Obj.baseline;
+            Obn = this.Obj2native(Obj);
+            est = this.fixed_scale*conv(this.estimatorGamma_(Obn), this.box) + this.fixed_baseline;
             est = est(1:length(this.timeInterpolants));
             est(est < 0) = 0;            
         end
