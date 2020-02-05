@@ -112,7 +112,7 @@ classdef TwiliteCatheterCalibration < mlswisstrace.AbstractTwilite
                     'calibrationTable', tbl(it,:), ...
                     'sigma0', 100, ...
                     'modelName', 'GeneralizedGammaDistributionP');
-                main = cath.calibrate();
+                main = cath.run(cath);
                 results{it} = main.apply.results;
             end
         end
@@ -238,15 +238,15 @@ classdef TwiliteCatheterCalibration < mlswisstrace.AbstractTwilite
             s = std(this.timingData_.activity);
         end
         function tbl  = tabulateCalibrationMeasurements(this)
-            hh =  [16    17 17 17   19 19 19   19 20 20 20 20]';
-            mm =  [58    42 46 50    7 11 15   59  3  7 11 15]';
+            hh =  [    17 17 17   19 19 19   19 20 20 20 20]';
+            mm =  [    42 46 50    7 11 15   59  3  7 11 15]';
             observations0 = datetime(2019,9,30,hh,mm,0, 'TimeZone', 'America/Chicago');
-            hh1 = [16    17 17 17   19 19 19   20 20 20 20 20]';
-            mm1 = [59    43 47 51    8 12 16    0  4  8 12 16]';
-            ss1 = [ 8     0  0  0    0  0  0    0  0  0  0  0]';
+            hh1 = [    17 17 17   19 19 19   20 20 20 20 20]';
+            mm1 = [    43 47 51    8 12 16    0  4  8 12 16]';
+            ss1 = [     0  0  0    0  0  0    0  0  0  0  0]';
             inflow = datetime(2019,9,30,hh1,mm1,ss1, 'TimeZone', 'America/Chicago');
-            hh2 = [17    17 17 17   19 19 19   20 20 20 20 20]';
-            mm2 = [ 3    45 49 53   10 14 18    2  6 10 14 18]';
+            hh2 = [    17 17 17   19 19 19   20 20 20 20 20]';
+            mm2 = [    45 49 53   10 14 18    2  6 10 14 18]';
             outflow = datetime(2019,9,30,hh2,mm2,0, 'TimeZone', 'America/Chicago');
             observationsF = outflow + minutes(2);
             observations  = [observations0 observationsF];
