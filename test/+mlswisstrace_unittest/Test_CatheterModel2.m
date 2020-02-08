@@ -26,25 +26,15 @@ classdef Test_CatheterModel2 < matlab.unittest.TestCase
             this.testObj.plotMap
         end
         function test_run(this)
+            disp(datestr(now))
             main = this.testObj.run(this.testObj);
             disp(main.apply.results)
         end
-        function test_runs(this)
-            diary(sprintf('Test_CatheterModel2_test_run_DT%s.log', datestr(now, 'yyyymmddHHMMSS')))
-            for val = { 0.1 0.05 0.01 }
-                tic
-                this.testObj.STEP_Initial = val{1};
-                main = this.testObj.run(this.testObj);
-                disp(main.apply.results)
-                toc
-            end
-            diary('off')
-        end
         function test_run_varying(this)
-            this.testObj.run_varying(this.testObj, 'n', [10 20 40])
-            this.testObj.run_varying(this.testObj, 'STEP_Initial', [.1 .01 .001])
-            this.testObj.run_varying(this.testObj, 'MCMC_Counter', [50 100 200])
-            this.testObj.run_varying(this.testObj, 'MAX', [2000 4000 8000])
+%            this.testObj.run_varying(this.testObj, 'STEP_Initial', [.1 .05 .01 .005 .001])
+            this.testObj.run_varying(this.testObj, 'MCMC_Counter', [30 40 60 70])
+%            this.testObj.run_varying(this.testObj, 'MAX', [500 1000 2000 4000])
+%            this.testObj.run_varying(this.testObj, 'n', [10 15 20])
         end
 	end
 
@@ -59,21 +49,17 @@ classdef Test_CatheterModel2 < matlab.unittest.TestCase
             %disp(tbl(1,:))
             this.testObj_ = CatheterModel2( ...
                 'calibrationData', tcc, ...
-                'calibrationTable', tbl(1,:), ...
-                'MAX', 4000, ...
-                'n', 10, ...
-                'MCMC_Counter', 100, ...
-                'STEP_Initial', 0.1, ...
-                'sigma0', 100, ...
-                'modelName', 'GeneralizedGammaDistributionPF');
+                'calibrationTable', tbl(5,:));
+            %this.testObj_.fixed_scale = 0.4802;
+            this.testObj_.sigma0 = 0.02;
  		end
 	end
 
  	methods (TestMethodSetup)
 		function setupCatheterModel2Test(this)
- 			this.testObj = this.testObj_;
+ 			this.testObj = copy(this.testObj_);
  			this.addTeardown(@this.cleanTestMethod);
-            %rng('default')
+            rng('default')
  		end
 	end
 

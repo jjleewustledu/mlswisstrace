@@ -7,8 +7,6 @@ classdef CatheterModel2 < handle & mlnest.GammaDistributions
  	%% It was developed on Matlab 9.7.0.1261785 (R2019b) Update 3 for MACI64.  Copyright 2020 John Joowon Lee.
  	
     properties (Constant)
-        fixed_baseline = 149
-        fixed_scale = 0.5611
     end
     
 	properties
@@ -29,8 +27,8 @@ classdef CatheterModel2 < handle & mlnest.GammaDistributions
     
     methods        
         function est  = Estimation(this, Obj)
-            Obn = this.Obj2native(Obj);
-            est = this.fixed_scale*conv(this.estimatorGamma_(Obn), this.box) + this.fixed_baseline;
+            Obn = Obj2native(this, Obj);
+            est = Obn.scale*conv(this.estimatorGamma_(Obn), this.box) + Obn.baseline;
             est = est(1:length(this.timeInterpolants));
             est(est < 0) = 0;            
         end
@@ -42,7 +40,7 @@ classdef CatheterModel2 < handle & mlnest.GammaDistributions
             %  @param calibrationData is mlpet.IAifData suitable for catheter.
             %  @param calibrationTable is a table.
 
-            this = this@mlnest.GammaDistributions(varargin{:});
+            this = this@mlnest.GammaDistributions('modelName', 'GeneralizedGammaDistributionPF', varargin{:});
             
             ip = inputParser;
             ip.KeepUnmatched = true;
@@ -54,13 +52,18 @@ classdef CatheterModel2 < handle & mlnest.GammaDistributions
             this.calibrationData_ = ipr.calibrationData;
             this.calibrationTable_ = ipr.calibrationTable;                        
             this.map = containers.Map;
-%           this.map('baseline') = struct('min', 148,    'max', 150,   'init', 149);
-%           this.map('scale')    = struct('min',   0.5,  'max',   0.7, 'init',   0.56);
-            this.map('a')        = struct('min',   0.1,  'max',   0.6, 'init',   0.57);
-            this.map('b')        = struct('min',   1,    'max',   5,   'init',   3.5);
-            this.map('p')        = struct('min',   0.3,  'max',   0.6, 'init',   0.45);
-%           this.map('t0')       = struct('min',   9,    'max',  11,   'init',  10);
-            this.map('w')        = struct('min',   0.1,  'max',   1,   'init',   0.3);
+            this.map('baseline') = struct('min', 120,   'max', 160,   'init', 150);
+            this.map('scale')    = struct('min',   0.3, 'max',   0.6, 'init',   0.5722);
+            this.map('t0')       = struct('min',   0,   'max',  10,   'init',   7.7);
+            %this.map('a')       = struct('min',   eps, 'max',   0.7, 'init',   0.28); GammaDistributions.fixed_a
+            this.map('b')        = struct('min',   0,   'max',   2,   'init',   1);
+            this.map('p')        = struct('min',   0.5, 'max',   6, 'init',   1.5);
+            this.map('w')        = struct('min',   0,   'max',   2,   'init',   1.3);
+
+            this.MAX = 500;            
+            this.MCMC_Counter = 50;
+            this.STEP_Initial = 0.05;
+            this.sigma0 = 0.02;
             
             [this.timeInterpolants,dt0] = this.observations2times(this.calibrationTable_.observations);
             [this.box,this.idx0,this.idxF] = this.boxcar( ...
