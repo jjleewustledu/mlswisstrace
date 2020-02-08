@@ -99,22 +99,82 @@ classdef TwiliteCatheterCalibration < mlswisstrace.AbstractTwilite
         function calibrateCatheter2()
             import mlswisstrace.*
             
-            tcc = TwiliteCatheterCalibration.create();
-            tbl = tcc.tabulateCalibrationMeasurements();
-            disp(tcc)
+            % construct prerequisites
+            fp = 'mlswisstrace_TwiliteCatheterCalibration';
+            ensuredir(fp)
+            diary(fullfile(fp, [fp '.log']))
+            tcc_ = TwiliteCatheterCalibration.create();
+            tbl_ = tcc_.tabulateCalibrationMeasurements();
+            disp(tcc_)
             %tcc.plotCounts()
-            
-            results = cell(1, size(tbl,1));
-            for it = 1:size(tbl,1)
-                disp(tbl(it,:))
-                cath = CatheterModel2( ...
-                    'calibrationData', tcc, ...
-                    'calibrationTable', tbl(it,:), ...
-                    'sigma0', 100, ...
-                    'modelName', 'GeneralizedGammaDistributionP');
-                main = cath.run(cath);
-                results{it} = main.apply.results;
+            %scales = [0.5722 0.5664 0.5711 0.4804 0.4800 0.4774 0.4085 0.4069 0.3955 0.3221 0.3160 ];
+            hcts = [45 45 42 36 35 35 28 28 28 28 28];
+
+            % run and gather results for all impulse-response experiments
+            if isfile(fullfile(fp, [fp '.mat']))
+                load(fullfile(fp, [fp '.mat']), 'results', 'cath', 'main')
+            else
+                results = cell(1, size(tbl_,1));
+                for it = 1:size(tbl_,1)
+                    disp(tbl_(it,:))
+                    cath = CatheterModel2( ...
+                        'calibrationData', tcc_, ...
+                        'calibrationTable', tbl_(it,:), ...
+                        'fileprefix', fp);
+                    cath.sigma0 = 0.03;
+                    switch it
+                        case 2
+                            cath.map('scale') = struct('min', 0.565, 'max', 0.575, 'init', 0.5700);
+                        case 3
+                            cath.map('scale') = struct('min', 0.565, 'max', 0.575, 'init', 0.5715);
+                        case 4
+                            cath.map('scale') = struct('min', 0.48,  'max', 0.485, 'init', 0.4837);
+                        case 5
+                            cath.map('scale') = struct('min', 0.47,  'max', 0.475, 'init', 0.4727);
+                        case 6
+                            cath.map('scale') = struct('min', 0.48,  'max', 0.485, 'init', 0.4802);                            
+                        case 7
+                            cath.map('scale') = struct('min', 0.4,   'max', 0.41,  'init', 0.4085);                          
+                        case 8
+                            cath.map('scale') = struct('min', 0.4,   'max', 0.41,  'init', 0.4061);                            
+                        case 9
+                            cath.map('scale') = struct('min', 0.395, 'max', 0.405, 'init', 0.4016);
+                        case 11
+                            cath.map('scale') = struct('min', 0.32,  'max', 0.325, 'init', 0.3222);
+                        otherwise
+                    end
+                    main = cath.run(cath);
+                    results{it} = main.apply.results;
+                end
+                save(fullfile(fp, [fp '.mat']))
             end
+            
+            % create table and plot flds
+            tbl = table;
+            flds = {'b' 'p' 't0' 'w'}; % fixed_a
+            for f = 1:length(flds)
+                chains_ = [];
+                for r = 1:length(results)
+                    chains_ = [chains_; results{r}.chains(:,f)]; %#ok<AGROW>
+                end
+                tbl.(flds{f}) = cath.vec2native(length(results)*chains_, cath.limits(flds{f}));
+            end            
+            hcts_ = [];
+            for r = 1:length(results)
+                hcts_ = [hcts_; hcts(r)*ones(size(results{r}.chains,1), 1)]; %#ok<AGROW>
+            end
+            hcts_ = hcts_ + 0.25*randn(size(hcts_)); % jitter by hct stderr for visualization
+            tbl.hcts = hcts_;
+            figure; stackedplot(tbl, 'XVariable', 'hcts', 'Marker', '.', 'LineStyle', 'none')
+            figure; plot(tbl.hcts, tbl.b,  'LineStyle', 'none', 'Marker', '.'); xlabel('Hct'); ylabel('b')
+            figure; plot(tbl.hcts, tbl.p,  'LineStyle', 'none', 'Marker', '.'); xlabel('Hct'); ylabel('p')
+            figure; plot(tbl.hcts, tbl.t0, 'LineStyle', 'none', 'Marker', '.'); xlabel('Hct'); ylabel('t0')
+            figure; plot(tbl.hcts, tbl.w,  'LineStyle', 'none', 'Marker', '.'); xlabel('Hct'); ylabel('w')
+            
+            %saveFigures(fp, 'closeFigure', false)
+            save(fullfile(fp, [fp '2.mat']))
+            
+            diary('off')
         end
     end
     
