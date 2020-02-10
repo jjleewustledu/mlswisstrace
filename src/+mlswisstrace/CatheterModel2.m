@@ -1,4 +1,4 @@
-classdef CatheterModel2 < handle & mlnest.GammaDistributions
+classdef CatheterModel2 < handle & mlswisstrace.GammaDistributions
 	%% CATHETERMODEL2  
 
 	%  $Revision$
@@ -11,6 +11,7 @@ classdef CatheterModel2 < handle & mlnest.GammaDistributions
     
 	properties
  		box
+        Doutflow = 0 % sec
         idx0
         idxF
  	end
@@ -40,7 +41,7 @@ classdef CatheterModel2 < handle & mlnest.GammaDistributions
             %  @param calibrationData is mlpet.IAifData suitable for catheter.
             %  @param calibrationTable is a table.
 
-            this = this@mlnest.GammaDistributions('modelName', 'GeneralizedGammaDistributionPF', varargin{:});
+            this = this@mlswisstrace.GammaDistributions('modelName', 'GeneralizedGammaDistributionPF', varargin{:});
             
             ip = inputParser;
             ip.KeepUnmatched = true;
@@ -52,13 +53,13 @@ classdef CatheterModel2 < handle & mlnest.GammaDistributions
             this.calibrationData_ = ipr.calibrationData;
             this.calibrationTable_ = ipr.calibrationTable;                        
             this.map = containers.Map;
+            %this.map('a')       = struct('min',   eps, 'max',   0.7, 'init',   0.28);
+            %this.map('b')       = struct('min',   0,   'max',   4,   'init',   0.5); % GeneralizedGammaDistributionPF
             this.map('baseline') = struct('min', 120,   'max', 160,   'init', 150);
-            this.map('scale')    = struct('min',   0.3, 'max',   0.6, 'init',   0.5722);
-            this.map('t0')       = struct('min',   0,   'max',  10,   'init',   7.7);
-            %this.map('a')       = struct('min',   eps, 'max',   0.7, 'init',   0.28); GammaDistributions.fixed_a
-            this.map('b')        = struct('min',   0,   'max',   2,   'init',   1);
-            this.map('p')        = struct('min',   0.5, 'max',   6, 'init',   1.5);
-            this.map('w')        = struct('min',   0,   'max',   2,   'init',   1.3);
+            %this.map('p')       = struct('min',   0.25, 'max',  2,   'init',   0.4618); % GeneralizedGammaDistributionPF
+            this.map('scale')    = struct('min',   0.47,'max',   0.49,'init',   0.4771);
+            this.map('t0')       = struct('min',   8,   'max',  12,   'init',   9);
+            %this.map('w')       = struct('min',   0,   'max',   3,   'init',   1.3);
 
             this.MAX = 500;            
             this.MCMC_Counter = 50;
@@ -71,7 +72,7 @@ classdef CatheterModel2 < handle & mlnest.GammaDistributions
                 'times', this.timeInterpolants, ...
                 'datetime0', dt0, ...
                 'inflow', this.calibrationTable_.inflow, ...
-                'outflow', this.calibrationTable_.outflow);
+                'outflow', this.calibrationTable_.outflow - seconds(this.Doutflow));
             this.Measurement = this.calibrationData_.coincidence(this.idx0:this.idxF);
         end
     end

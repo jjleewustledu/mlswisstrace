@@ -52,6 +52,8 @@ classdef Test_CatheterModel2 < matlab.unittest.TestCase
                 'calibrationTable', tbl(5,:));
             %this.testObj_.fixed_scale = 0.4802;
             this.testObj_.sigma0 = 0.02;
+            this.testObj_.Doutflow = 3;
+            this.testObj_.hct = 35;
  		end
 	end
 

@@ -100,14 +100,13 @@ classdef TwiliteCatheterCalibration < mlswisstrace.AbstractTwilite
             import mlswisstrace.*
             
             % construct prerequisites
-            fp = 'mlswisstrace_TwiliteCatheterCalibration';
+            fp = 'mlswisstrace_TwiliteCatheterCalibration_LRw';
             ensuredir(fp)
             diary(fullfile(fp, [fp '.log']))
             tcc_ = TwiliteCatheterCalibration.create();
             tbl_ = tcc_.tabulateCalibrationMeasurements();
             disp(tcc_)
             %tcc.plotCounts()
-            %scales = [0.5722 0.5664 0.5711 0.4804 0.4800 0.4774 0.4085 0.4069 0.3955 0.3221 0.3160 ];
             hcts = [45 45 42 36 35 35 28 28 28 28 28];
 
             % run and gather results for all impulse-response experiments
@@ -122,25 +121,26 @@ classdef TwiliteCatheterCalibration < mlswisstrace.AbstractTwilite
                         'calibrationTable', tbl_(it,:), ...
                         'fileprefix', fp);
                     cath.sigma0 = 0.03;
+                    cath.hct = hcts(it);
                     switch it
                         case 2
-                            cath.map('scale') = struct('min', 0.565, 'max', 0.575, 'init', 0.5700);
+                            cath.map('scale') = struct('min', 0.56,  'max', 0.58, 'init', 0.5700);
                         case 3
-                            cath.map('scale') = struct('min', 0.565, 'max', 0.575, 'init', 0.5715);
+                            cath.map('scale') = struct('min', 0.56,  'max', 0.58, 'init', 0.5715);
                         case 4
-                            cath.map('scale') = struct('min', 0.48,  'max', 0.485, 'init', 0.4837);
+                            cath.map('scale') = struct('min', 0.47,  'max', 0.49, 'init', 0.4837);
                         case 5
-                            cath.map('scale') = struct('min', 0.47,  'max', 0.475, 'init', 0.4727);
+                            cath.map('scale') = struct('min', 0.46,  'max', 0.48, 'init', 0.4727);
                         case 6
-                            cath.map('scale') = struct('min', 0.48,  'max', 0.485, 'init', 0.4802);                            
+                            cath.map('scale') = struct('min', 0.47,  'max', 0.49, 'init', 0.4802);                            
                         case 7
-                            cath.map('scale') = struct('min', 0.4,   'max', 0.41,  'init', 0.4085);                          
+                            cath.map('scale') = struct('min', 0.39,  'max', 0.41, 'init', 0.4085);                          
                         case 8
-                            cath.map('scale') = struct('min', 0.4,   'max', 0.41,  'init', 0.4061);                            
+                            cath.map('scale') = struct('min', 0.39,  'max', 0.41, 'init', 0.4061);                            
                         case 9
-                            cath.map('scale') = struct('min', 0.395, 'max', 0.405, 'init', 0.4016);
+                            cath.map('scale') = struct('min', 0.39,  'max', 0.41, 'init', 0.4016);
                         case 11
-                            cath.map('scale') = struct('min', 0.32,  'max', 0.325, 'init', 0.3222);
+                            cath.map('scale') = struct('min', 0.31,  'max', 0.33, 'init', 0.3222);
                         otherwise
                     end
                     main = cath.run(cath);
@@ -150,14 +150,35 @@ classdef TwiliteCatheterCalibration < mlswisstrace.AbstractTwilite
             end
             
             % create table and plot flds
-            tbl = table;
-            flds = {'b' 'p' 't0' 'w'}; % fixed_a
+            flds = {'baseline' 'scale' 't0'}; % a, b, p, w
+            fld2idx = 1:1:length(flds);
+            
+            tblMean = table;
             for f = 1:length(flds)
-                chains_ = [];
+                meanfield_ = [];
                 for r = 1:length(results)
-                    chains_ = [chains_; results{r}.chains(:,f)]; %#ok<AGROW>
+                    meanfield_ = [meanfield_; results{r}.moment1(fld2idx(f))]; %#ok<AGROW>
                 end
-                tbl.(flds{f}) = cath.vec2native(length(results)*chains_, cath.limits(flds{f}));
+                tblMean.(flds{f}) = meanfield_;
+            end            
+            hctsMean = [];
+            for r = 1:length(results)
+                hctsMean = [hctsMean; hcts(r)]; %#ok<AGROW>
+            end
+            tblMean.hcts = hctsMean;
+            figure; stackedplot(tblMean, 'XVariable', 'hcts', 'Marker', 'o', 'LineStyle', 'none')
+            %figure; plot(tblMean.hcts, tblMean.a,  'LineStyle', ':', 'Marker', 'o'); xlabel('Hct'); ylabel('a')
+            %figure; plot(tblMean.hcts, tblMean.b,  'LineStyle', ':', 'Marker', 'o'); xlabel('Hct'); ylabel('b')
+            %figure; plot(tblMean.hcts, tblMean.p,  'LineStyle', ':', 'Marker', 'o'); xlabel('Hct'); ylabel('p')
+            %figure; plot(tblMean.hcts, tblMean.w,  'LineStyle', ':', 'Marker', 'o'); xlabel('Hct'); ylabel('w')
+            
+            tbl = table;
+            for f = 1:length(flds)
+                chains = [];
+                for r = 1:length(results)
+                    chains = [chains; results{r}.chains(:,fld2idx(f))]; %#ok<AGROW>
+                end
+                tbl.(flds{f}) = cath.vec2native(chains, cath.limits(flds{f}));
             end            
             hcts_ = [];
             for r = 1:length(results)
@@ -166,15 +187,60 @@ classdef TwiliteCatheterCalibration < mlswisstrace.AbstractTwilite
             hcts_ = hcts_ + 0.25*randn(size(hcts_)); % jitter by hct stderr for visualization
             tbl.hcts = hcts_;
             figure; stackedplot(tbl, 'XVariable', 'hcts', 'Marker', '.', 'LineStyle', 'none')
-            figure; plot(tbl.hcts, tbl.b,  'LineStyle', 'none', 'Marker', '.'); xlabel('Hct'); ylabel('b')
-            figure; plot(tbl.hcts, tbl.p,  'LineStyle', 'none', 'Marker', '.'); xlabel('Hct'); ylabel('p')
-            figure; plot(tbl.hcts, tbl.t0, 'LineStyle', 'none', 'Marker', '.'); xlabel('Hct'); ylabel('t0')
-            figure; plot(tbl.hcts, tbl.w,  'LineStyle', 'none', 'Marker', '.'); xlabel('Hct'); ylabel('w')
+            %figure; plot(tbl.hcts, tbl.a,  'LineStyle', 'none', 'Marker', '.'); xlabel('Hct'); ylabel('a')
+            %figure; plot(tbl.hcts, tbl.b,  'LineStyle', 'none', 'Marker', '.'); xlabel('Hct'); ylabel('b')
+            %figure; plot(tbl.hcts, tbl.p,  'LineStyle', 'none', 'Marker', '.'); xlabel('Hct'); ylabel('p')
+            %figure; plot(tbl.hcts, tbl.w,  'LineStyle', 'none', 'Marker', '.'); xlabel('Hct'); ylabel('w')
             
-            %saveFigures(fp, 'closeFigure', false)
+            
+            saveFigures(fp, 'closeFigure', false)
             save(fullfile(fp, [fp '2.mat']))
             
             diary('off')
+        end
+        function doPca()
+            loaded = ...
+                load('/Users/jjlee/Tmp/mlswisstrace_CatheterModel2_20200207215700/mlswisstrace_TwiliteCatheterCalibration/mlswisstrace_TwiliteCatheterCalibration2.mat', 'tbl');
+            tbl = loaded.tbl;
+            loaded = ...
+                load('/Users/jjlee/Tmp/mlswisstrace_CatheterModel2_20200207215700/mlswisstrace_TwiliteCatheterCalibration/mlswisstrace_TwiliteCatheterCalibration2.mat', 'tblMean');
+            tblMean = loaded.tblMean;
+            
+            tbl1 = table;
+            tbl1.a = tbl.a;
+            tbl1.b = tbl.b;
+            tbl1.p = tbl.p;
+            tbl1.w = tbl.w;
+            tbl1.hcts = tbl.hcts;
+            tbl1Arr = table2array(tbl1);
+            tbl2 = table;
+            tbl2.a = tbl.a;
+            tbl2.b = tbl.b;
+            tbl2.p = tbl.p;
+            tbl2.w = tbl.w;            
+            tbl2Arr = table2array(tbl2);
+            
+            tblMean1 = table;
+            tblMean1.a = tbl.a;
+            tblMean1.b = tbl.b;
+            tblMean1.p = tbl.p;
+            tblMean1.w = tbl.w;
+            tblMean1.hcts = tbl.hcts;
+            tblMean1Arr = table2array(tblMean1);
+            tblMean2 = table;
+            tblMean2.a = tbl.a;
+            tblMean2.b = tbl.b;
+            tblMean2.p = tbl.p;
+            tblMean2.w = tbl.w;            
+            tblMean2Arr = table2array(tblMean2);
+            
+            corr(tbl1Arr, tbl1Arr)
+            
+            [wcoeff,score,latent,tsquared,explained] = pca(tbl1Arr, 'VariableWeights', 'variance');
+            coefforth = inv(diag(std(tbl1Arr)))*wcoeff;
+            figure; pareto(explained); xlabel('Principle Component'); ylabel('Variance Explained (%)')
+            figure; biplot(coefforth(:,1:2),'Scores',score(:,1:2),'Varlabels',{'a' 'b' 'p' 'w' 'hcts'})
+            figure; biplot(coefforth(:,1:3),'Scores',score(:,1:3),'Varlabels',{'a' 'b' 'p' 'w' 'hcts'})
         end
     end
     
