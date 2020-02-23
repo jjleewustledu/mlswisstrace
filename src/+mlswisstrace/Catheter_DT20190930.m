@@ -21,7 +21,7 @@ classdef Catheter_DT20190930
             ip = inputParser;
             ip.KeepUnmatched = true;
             addParameter(ip, 'Fourier', true, @islogical)
-            addParameter(ip, 'N', 4096, @isnumeric)
+            addParameter(ip, 'N', 8192, @isnumeric)
             parse(ip, varargin{:})
             ipr = ip.Results;
             

@@ -58,11 +58,12 @@ classdef Test_Catheter_DT20190930 < matlab.unittest.TestCase
         function test_plotall_CO(this)
             % 2019 May 23            
             
-            twiliteData_ = mlswisstrace.Twilite.createFromDatetime();
+            dt_CO = datetime(2019, 5, 23, 11, 29, 21, 'TimeZone', 'America/Chicago');
+            twil_ = mlswisstrace.Twilite.createFromDatetime(dt_CO);
             
             this.testObj.hct = 45;
-            this.testObj.timeInterpolants = ;
-            this.testObj.Measurement = twiliteData_.coincidence(idx0:idxF);
+            this.testObj.timeInterpolants = twil_.timeInterpolants;
+            this.testObj.Measurement = twil_.counts;
             this.testObj.plotall()
         end
         function test_plotall_OO(this)
