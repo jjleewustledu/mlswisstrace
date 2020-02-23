@@ -1,4 +1,4 @@
-classdef TwiliteDevice < handle & mlpet.Instrument
+classdef TwiliteDevice < handle & mlpet.Device
 	%% TWILITEDEVICE  
 
 	%  $Revision$
@@ -27,7 +27,7 @@ classdef TwiliteDevice < handle & mlpet.Instrument
  			%% TWILITEDEVICE
  			%  @param .
 
- 			this = this@mlpet.Instrument(varargin{:});
+ 			this = this@mlpet.Device(varargin{:});
  		end
  	end 
 
