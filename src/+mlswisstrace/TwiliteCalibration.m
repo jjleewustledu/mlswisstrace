@@ -1,4 +1,4 @@
-classdef TwiliteCalibration < mlswisstrace.AbstractTwilite
+classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
 	%% TWILITECALIBRATION  
 
 	%  $Revision$
@@ -6,123 +6,159 @@ classdef TwiliteCalibration < mlswisstrace.AbstractTwilite
  	%  last modified $LastChangedDate$ and placed into repository /Users/jjlee/MATLAB-Drive/mlswisstrace/src/+mlswisstrace.
  	%% It was developed on Matlab 9.2.0.538062 (R2017a) for MACI64.  Copyright 2017 John Joowon Lee.
  	    
+    properties (Dependent)
+        calibrationAvailable
+        invEfficiency
+    end
+    
     methods (Static)
-        function this = createFromDate(varargin)
-            %% @param required dt is datetime.
+        function buildCalibration()
+        end   
+        function this = createFromSession(varargin)
+            %% CREATEBYSESSION
+            %  @param required sessionData is an mlpipeline.ISessionData.
             
-            ip = inputParser;
-            addRequired(ip, 'dt', @isdatetime);
-            addParameter(ip, 'isotope', 'FDG', @ischar);
-            parse(ip, varargin{:})
-            ipr = ip.Results;
-
-            crvpth = fullfile(getenv('HOME'), 'Documents', 'private', 'Twilite', 'CRV', '');
-            crvfp = sprintf('fdg_dt%d%02d%02d', ipr.dt.Year, ipr.dt.Month, ipr.dt.Day);
-            crvfqfn = fullfile(crvpth, [crvfp '.crv']);
-            if ~isfile(crvfqfn) 
-                crvfp = sprintf('o15_fdg_dt%d%02d%02d', ipr.dt.Year, ipr.dt.Month, ipr.dt.Day);
-                crvfqfn = fullfile(crvpth, [crvfp '.crv']);
-                assert(isfile(crvfqfn))
-            end
-            crm = mlpet.CCIRRadMeasurements.createByDate(ipr.dt);
-            this = mlswisstrace.TwiliteCalibration( ...
-                'fqfilename', crvfqfn, ...
-                'manualData', crm, ...
-                'isotope', ipr.isotope, ...
-                'doseAdminDatetime', crm.datetimeTracerAdmin('tracer', 'cal'));
+            this = mlswisstrace.TwiliteCalibration(varargin{:});
+        end
+        function inveff = invEfficiencyf(obj)
+            %% INVEFFICIENCYF attempts to use calibration data from the nearest possible datetime.
+            %  @param obj is an mlpipeline.ISessionData
+            
+            assert(is(obj, 'mlpipeline.ISessionData'))
+            this = mlswisstrace.TwiliteCalibration.createFromSession(obj);
+            inveff = this.invEfficiency;
         end
     end
     
 	methods 
-        function m    = mean_nobaseline(this)
-            m = mean(this.timingData_.activity);
+        
+        %% GET
+        
+        function g = get.calibrationAvailable(this)
+            g = ~isempty(this.twiliteData_);
         end
-        function m    = median_nobaseline(this)
-            m = median(this.timingData_.activity);
-        end
-        function s    = std_nobaseline(this)
-            s = std(this.timingData_.activity);
-        end
-        function this = updateTimingData(this, aDatetime)
-            %% UPDATETIMINGDATA progressively shrinks this.timingData_ by imposing time limits based on
-            %  @param aDatetime.
-            
-            this.timingData_ = this.timingData_.findCalibrationFrom(aDatetime);
+        function g = get.invEfficiency(this)
+            g = this.invEfficiency_;                
         end
         
- 		function this = TwiliteCalibration(varargin)
- 			%% TWILITECALIBRATION
-            %  @param dt.
-            %  @param invEfficiency.
-            %  @param expectedBaseline.
-            %  @param doMeasureBaseline.
-       
- 			this = this@mlswisstrace.AbstractTwilite(varargin{:});
-            this.isDecayCorrected = true;
- 		end
-    end 
+        %%        
+        
+        function ad = activityDensityForCal(this)
+            %% finds the temporally most proximate Twilite cal data and estimates activity density in Bq/mL.
+            
+            td = copy(this.twiliteData_);
+            [~,thresholdedIndex] = max(td.countRate() > td.baselineSup);
+            dtM1 = this.radMeasurements_.mMR.scanStartTime_Hh_mm_ss('NiftyPET');
+            dtM2 = td.datetimeMeasured + seconds(thresholdedIndex - 1);
+            td.findBaseline(dtM2);
+            td.findBolus(dtM1);
+            td.timeForDecayCorrection = td.time0;
+            td.decayCorrect;
+            ad = td.activityDensity('indices', td.index0:td.indexF);
+        end
+        function [h1,h2] = plot(this)
+            assert(isa(this.twiliteData_, 'mlswisstrace.TwiliteData'), ...
+                'mlswisstrace:RuntimeError', 'TwiliteCalibration.plot() found faulty this.twiliteData_')
+            td = copy(this.twiliteData_);
+            td.resetTimeLimits;
+            h1 = td.plot();
+            h2 = figure;
+            plot(this.activityDensityForCal());
+            xlabel('indices')
+            ylabel('activity density / (Bq/mL)')
+            title('mlswisstrace.TwiliteCalibration.plot():this.activityDensityForCal()')
+        end
+        
+    end
     
     %% PROTECTED
     
     properties (Access = protected)
-        baselineRange_ % time index
-        samplingRange_ % time index
+        invEfficiency_
+        twiliteData_
     end
     
-    %% HIDDEN @deprecated
-    
-    methods (Hidden)
-        function [m,s] = calibrationBaseline(this)
-            %% CALIBRATIONBASELINE returns specific activity
-            %  @returns m, mean
-            %  @returns s, std
+    methods (Access = protected)  
+ 		function this = TwiliteCalibration(sesd, varargin)       
+ 			this = this@mlpet.AbstractCalibration( ...
+                'radMeas', mlpet.CCIRRadMeasurements.createFromSession(sesd), varargin{:});
             
-            cnts = this.counts.*this.taus;
-            cnts = cnts(this.baselineRange_);
-            sa   = cnts/this.arterialCatheterVisibleVolume;
-            m    = mean(sa);
-            s    = std(sa);
-        end
-        function [m,s] = calibrationMeasurement(this)
-            %% CALIBRATIONMEASUREMENT returns specific activity without baseline
-            %  @returns m, mean
-            %  @returns s, std
+            % get activity density from Caprac
+            rm = this.radMeasurements_;
+            rowSelect = strcmp(rm.wellCounter.TRACER, '[18F]DG');
+            mass = rm.wellCounter.MassSample_G(rowSelect);
+            ge68 = rm.wellCounter.Ge_68_Kdpm(rowSelect);            
             
-            [m,s] = this.calibrationSample;
-             m    = m - this.calibrationBackground;
-        end
-        function [m,s] = calibrationSample(this)
-            %% CALIBRATIONSAMPLE returns specific activity
-            %  @returns m, mean
-            %  @returns s, std
-            
-            tzero  = this.times(this.samplingRange_(1));
-            dccnts = this.decayCorrection_.correctedCounts(this.counts, tzero).*this.taus;
-            dccnts = dccnts(this.samplingRange_);
-            sa     = dccnts/this.arterialCatheterVisibleVolume;
-            m      = mean(sa);
-            s      = std(sa);
-        end
-        function this  = findCalibrationIndices(this)
-            minCnts = min(this.counts);
-            cappedCnts = [minCnts*ones(1,5) this.counts minCnts*ones(1,5)];
-            [~,tup]   = max(diff(smooth(cappedCnts))); % smoothing range = 5
-            tup = tup - 5;
-            [~,tdown] = min(diff(smooth(cappedCnts)));
-            tdown = tdown - 5;
-            smplRng   = tup:tdown;
-            N = length(this.counts);
-            Npre = smplRng(1);
-            Npost = N - smplRng(end);
-            if (Npre > Npost)
-                baseRng = 1:smplRng(1)-1;
-            else
-                baseRng = smplRng(end)+1:N;
+            try
+                shift = seconds( ...
+                    rm.mMR.scanStartTime_Hh_mm_ss('NiftyPET') - ...
+                    seconds(rm.clocks.TimeOffsetWrtNTS____s('mMR console')) - ...
+                    rm.wellCounter.TIMECOUNTED_Hh_mm_ss(rowSelect)); % backwards in time, clock-adjusted            
+                capCal = mlcapintec.CapracCalibration.createFromSession(sesd);
+                activityDensityCapr = capCal.activityDensity('mass', mass, 'ge68', ge68, 'solvent', 'water');
+                activityDensityCapr = this.shiftWorldLines(activityDensityCapr, shift, this.radionuclide_.halflife); 
+
+                % get twilite calibration from most time-proximal calibration measurements
+                this.twiliteData_ = mlswisstrace.TwiliteData.createFromSession(sesd);
+                offset = 0;
+                while ~this.calibrationAvailable                    
+                    sesd = this.searchForCalibrationSession(sesd, offset);
+                    this.twiliteData_ = mlswisstrace.TwiliteData.createFromSession(sesd);
+                    offset = offset + 1;
+                end
+                this.invEfficiency_ = mean(activityDensityCapr)/mean(this.activityDensityForCal());
+            catch ME
+                handwarning(ME)
+                this.twiliteData_ = [];
+                this.invEfficiency_ = NaN;
             end
-            this.samplingRange_ = smplRng;
-            this.baselineRange_ = baseRng;
         end
     end
+    
+    %% PRIVATE
+    
+    methods (Access = private)
+        function sesd = searchForCalibrationSession(this, sesd, offset)
+            datetimeBest = datetime(sesd);
+            fdgCrvs = globT(fullfile(mlnipet.Resources.instance().CCIR_RAD_MEASUREMENTS_DIR, 'Twilite', 'CRV', '*fdg*.crv'));
+            dates = this.crv2date(fdgCrvs);
+            [~,idx] = min(abs(dates - datetimeBest));
+            sesd = this.date2sessionData(dates(idx + offset), sesd);
+        end
+        function sesd = date2sessionData(this, date, sesd)
+            home = getenv('SINGULARITY_HOME');
+            assert(~isempty(home))
+            for project = globFoldersT(fullfile(home, 'CCIR_*'))
+                for session = globFoldersT(fullfile(project{1}, 'ses-E*'))
+                    for fdg = globFoldersT(fullfile(session{1}, 'FDG_DT*-Converted-AC'))
+                        if this.containsDate(fdg{1}, date)
+                            sesd = sesd.create(fullfile(mybasename(project{1}), mybasename(session{1}), mybasename(fdg{end})));
+                            return
+                        end
+                    end
+                end
+            end            
+            error('mlswisstrace:RuntimeError', ...
+                'TwiliteCalibration.date2sessionData could not find sessionData for date %s', datestr(date))
+        end
+        function tf = containsDate(~, str, date)
+            tf = lstrfind(str, datestr(date, 'yyyymmdd'));
+        end
+        function d = crv2date(this, crv)
+            if iscell(crv)
+                dates = cellfun(@(x) this.crv2date(x), crv, 'UniformOutput', false);
+                dates = dates';
+                T = cell2table(dates);
+                d = T.dates;
+                return
+            end
+            
+            % base case
+            assert(ischar(crv))            
+            ss = strsplit(mybasename(crv), 'dt');
+            d = datetime(ss{2}, 'InputFormat', 'yyyyMMdd');            
+        end
+    end 
 
 	%  Created with Newcl by John J. Lee after newfcn by Frank Gonzalez-Morphy
  end
