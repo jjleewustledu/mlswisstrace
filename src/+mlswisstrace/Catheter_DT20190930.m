@@ -11,7 +11,7 @@ classdef Catheter_DT20190930
         Measurement
         t0 = 9.8671 % mean from data of 2019 Sep 30
  		timeInterpolants
- 	end
+    end
 
 	methods 
         function [q,r] = deconv(this, varargin)
@@ -27,10 +27,12 @@ classdef Catheter_DT20190930
             
             if ipr.Fourier
                 q = ifft(fft(M, ipr.N) ./ fft(k, ipr.N));
+                q = q(1:length(this.timeInterpolants));
                 r = [];
                 return
             end            
             [q,r] = deconv(M, k);
+            q = q(1:length(this.timeInterpolants));
         end
         function k = kernel(this)
             %% including regressions on catheter data of 2019 Sep 30
@@ -82,10 +84,6 @@ classdef Catheter_DT20190930
         end
 		  
  		function this = Catheter_DT20190930(varargin)
- 			%% CATHETER_DT20190930
- 			%  @param .
-
- 			
  		end
     end     
     
