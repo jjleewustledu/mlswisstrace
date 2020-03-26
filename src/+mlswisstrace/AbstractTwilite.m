@@ -268,7 +268,7 @@ classdef (Abstract) AbstractTwilite < mlpet.AbstractAifData
             addParameter(ip, 'dt', 1,                 @isnumeric);
             addParameter(ip, 'invEfficiency', 1,    @isnumeric);
             addParameter(ip, 'expectedBaseline', 92,  @isnumeric);
-            addParameter(ip, 'doMeasureBaseline', true, @islogical);
+            addParameter(ip, 'measuredBaseline', true, @islogical);
             parse(ip, varargin{:});
             ipr = ip.Results;
             
@@ -280,7 +280,7 @@ classdef (Abstract) AbstractTwilite < mlpet.AbstractAifData
                 'datetimeMeasured', ttdt(1), ...
                 'dt', ipr.dt, ...
                 'expectedBaseline', ipr.expectedBaseline, ...
-                'doMeasureBaseline', ipr.doMeasureBaseline, ...
+                'measuredBaseline', ipr.measuredBaseline, ...
                 'radionuclide', mlpet.Radionuclides(this.isotope));
             this.counts2specificActivity_ = ipr.invEfficiency;    
             

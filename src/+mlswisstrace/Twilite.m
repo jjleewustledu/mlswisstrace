@@ -17,7 +17,7 @@ classdef Twilite < mlswisstrace.AbstractTwilite
             addParameter(ip, 'crvFqfn', '', @ischar)
             parse(ip, varargin{:})
             ipr = ip.Results;            
-            crm = mlpet.CCIRRadMeasurements.createByDate(ipr.datetime);
+            crm = mlpet.CCIRRadMeasurements.createFromDate(ipr.datetime);
             tracer = crm.datetime2tracer(ipr.datetime);
             isotope = crm.datetime2isotope(ipr.datetime);
             
@@ -62,7 +62,7 @@ classdef Twilite < mlswisstrace.AbstractTwilite
                 end
                 assert(isfile(ipr.crvFqfn))
             end
-            crm = mlpet.CCIRRadMeasurements.createByDate(ipr.sessionData.datetime);
+            crm = mlpet.CCIRRadMeasurements.createFromDate(ipr.sessionData.datetime);
             this = mlswisstrace.Twilite( ...
                 'fqfilename', ipr.crvFqfn, ...
                 'sessionData', ipr.sessionData, ...
@@ -96,7 +96,7 @@ classdef Twilite < mlswisstrace.AbstractTwilite
             %  @param dt.
             %  @param invEfficiency.
             %  @param expectedBaseline.
-            %  @param doMeasureBaseline.
+            %  @param measuredBaseline.
             
  			this = this@mlswisstrace.AbstractTwilite(varargin{:});    
         end        

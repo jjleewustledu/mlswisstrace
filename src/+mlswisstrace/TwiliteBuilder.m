@@ -1,5 +1,5 @@
 classdef TwiliteBuilder < mlpet.AbstractAifBuilder
-	%% TWILITEBUILDER  
+	%% TWILITEBUILDER is DEPRECATED 
 
 	%  $Revision$
  	%  was created 12-Dec-2017 16:44:27 by jjlee,

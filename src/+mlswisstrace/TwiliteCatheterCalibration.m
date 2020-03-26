@@ -27,7 +27,7 @@ classdef TwiliteCatheterCalibration < mlswisstrace.AbstractTwilite
             crvfp = sprintf('fdg_dt%d%02d%02d', ipr.dt.Year, ipr.dt.Month, ipr.dt.Day);
             crvfqfn = fullfile(crvpth, [crvfp '.crv']);
             assert(isfile(crvfqfn))
-            crm = mlpet.CCIRRadMeasurements.createByDate(ipr.dt);
+            crm = mlpet.CCIRRadMeasurements.createFromDate(ipr.dt);
             this = mlswisstrace.TwiliteCatheterCalibration( ...
                 'fqfilename', crvfqfn, ...
                 'manualData', crm, ...
@@ -392,7 +392,7 @@ classdef TwiliteCatheterCalibration < mlswisstrace.AbstractTwilite
             %  @param dt.
             %  @param invEfficiency.
             %  @param expectedBaseline.
-            %  @param doMeasureBaseline.
+            %  @param measuredBaseline.
        
  			this = this@mlswisstrace.AbstractTwilite(varargin{:});
             this.isDecayCorrected = false;
