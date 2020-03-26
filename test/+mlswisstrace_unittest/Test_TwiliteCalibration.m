@@ -55,15 +55,41 @@ classdef Test_TwiliteCalibration < matlab.unittest.TestCase
                         str = fullfile(mybasename(proj{1}), mybasename(ses{1}), mybasename(fdg{end}));
                         sesd = mlraichle.SessionData.create(str);
                         try
-                            disp(sesd)
-                            tcal = mlswisstrace.TwiliteCalibration.createFromSession(sesd);
-                            tcal.plot()
+                            if datetime(sesd) > datetime(2016, 4, 1, 'TimeZone', 'America/Chicago')
+                                disp(sesd)
+                                tcal = mlswisstrace.TwiliteCalibration.createFromSession(sesd);
+                                this.verifyTrue(isrow(tcal.invEfficiencyf(sesd)));
+                                tcal.plot()
+                            end
                         catch ME
                             handwarning(ME)
                         end
                     end
                 end
             end
+        end
+        function test_arrayOutOfBounds(this)
+            sesd = mlraichle.SessionData.create('CCIR_00559/ses-E216027/FDG_DT20170613135932.000000-Converted-AC');
+            disp(sesd)
+            tcal = mlswisstrace.TwiliteCalibration.createFromSession(sesd);
+            this.verifyTrue(isrow(tcal.invEfficiencyf(sesd)));
+            tcal.plot()
+            
+        end
+        function test_findProximalSession(this)
+            sesd = mlraichle.SessionData.create('CCIR_00754/ses-E186470/FDG_DT20160408121938.000000-Converted-AC');
+            disp(sesd)
+            tcal = mlswisstrace.TwiliteCalibration.createFromSession(sesd);
+            tcal.plot()            
+            
+        end
+        function test_shortCalibration(this)
+            sesd = mlraichle.SessionData.create('CCIR_00559/ses-E251344/FDG_DT20180601125239.000000-Converted-AC');
+            disp(sesd)
+            tcal = mlswisstrace.TwiliteCalibration.createFromSession(sesd);
+            this.verifyTrue(isrow(tcal.invEfficiencyf(sesd)));
+            tcal.plot()            
+            
         end
 	end
 

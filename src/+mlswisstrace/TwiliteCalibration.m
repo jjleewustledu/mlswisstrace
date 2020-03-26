@@ -14,19 +14,41 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
     methods (Static)
         function buildCalibration()
         end   
-        function this = createFromSession(varargin)
+        function this = createFromSession(sesd, varargin)
             %% CREATEBYSESSION
             %  @param required sessionData is an mlpipeline.ISessionData.
+            %  @param offset is numeric & searches for alternative SessionData.
             
-            this = mlswisstrace.TwiliteCalibration(varargin{:});
+            import mlswisstrace.TwiliteCalibration
+            
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            addRequired(ip, 'sesd', @(x) isa(x, 'mlpipeline.ISessionData'))
+            addOptional(ip, 'offset', 1, @isnumeric)
+            parse(ip, sesd, varargin{:})
+            ipr = ip.Results;
+            
+            try
+                this = TwiliteCalibration(sesd, varargin{:});
+                
+                % get twilite calibration from most time-proximal calibration measurements
+                if ~this.calibrationAvailable
+                    error('mlswisstrace:ValueError', 'TwiliteCalibration.calibrationAvailable -> false')
+                end
+            catch ME
+                handwarning(ME)
+                sesd = TwiliteCalibration.findProximalSession(sesd, ipr.offset);
+                this = TwiliteCalibration.createFromSession(sesd, 'offset', ipr.offset+1);
+            end
         end
-        function inveff = invEfficiencyf(obj)
+        function ie = invEfficiencyf(obj)
             %% INVEFFICIENCYF attempts to use calibration data from the nearest possible datetime.
             %  @param obj is an mlpipeline.ISessionData
             
-            assert(is(obj, 'mlpipeline.ISessionData'))
+            assert(isa(obj, 'mlpipeline.ISessionData'))
             this = mlswisstrace.TwiliteCalibration.createFromSession(obj);
-            inveff = this.invEfficiency;
+            ie = this.invEfficiency;            
+            ie = asrow(ie);
         end
     end
     
@@ -48,13 +70,14 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
             
             td = copy(this.twiliteData_);
             [~,thresholdedIndex] = max(td.countRate() > td.baselineSup);
-            dtM1 = this.radMeasurements_.mMR.scanStartTime_Hh_mm_ss('NiftyPET');
+            dtM1 = this.radMeasurements_.mMR.scanStartTime_Hh_mm_ss(1);
             dtM2 = td.datetimeMeasured + seconds(thresholdedIndex - 1);
             td.findBaseline(dtM2);
             td.findBolus(dtM1);
             td.timeForDecayCorrection = td.time0;
             td.decayCorrect;
-            ad = td.activityDensity('indices', td.index0:td.indexF);
+            ad = td.activityDensity('index0', td.index0, 'indexF', td.indexF);
+            ad = asrow(ad);
         end
         function [h1,h2] = plot(this)
             assert(isa(this.twiliteData_, 'mlswisstrace.TwiliteData'), ...
@@ -63,10 +86,12 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
             td.resetTimeLimits;
             h1 = td.plot();
             h2 = figure;
-            plot(this.activityDensityForCal());
+            ad = this.activityDensityForCal();
+            plot(ad);
             xlabel('indices')
             ylabel('activity density / (Bq/mL)')
             title('mlswisstrace.TwiliteCalibration.plot():this.activityDensityForCal()')
+            text(1, ad(1), datestr(this.twiliteData_.datetimeMeasured))
         end
         
     end
@@ -79,33 +104,27 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
     end
     
     methods (Access = protected)  
- 		function this = TwiliteCalibration(sesd, varargin)       
+ 		function this = TwiliteCalibration(sesd, varargin)
  			this = this@mlpet.AbstractCalibration( ...
                 'radMeas', mlpet.CCIRRadMeasurements.createFromSession(sesd), varargin{:});
             
             % get activity density from Caprac
             rm = this.radMeasurements_;
-            rowSelect = strcmp(rm.wellCounter.TRACER, '[18F]DG');
+            rowSelect = strcmp(rm.wellCounter.TRACER, '[18F]DG') & ...
+                isnice(rm.wellCounter.MassSample_G) & ...
+                isnice(rm.wellCounter.Ge_68_Kdpm);
             mass = rm.wellCounter.MassSample_G(rowSelect);
-            ge68 = rm.wellCounter.Ge_68_Kdpm(rowSelect);            
+            ge68 = rm.wellCounter.Ge_68_Kdpm(rowSelect); 
             
             try
                 shift = seconds( ...
-                    rm.mMR.scanStartTime_Hh_mm_ss('NiftyPET') - ...
+                    rm.mMR.scanStartTime_Hh_mm_ss(1) - ...
                     seconds(rm.clocks.TimeOffsetWrtNTS____s('mMR console')) - ...
                     rm.wellCounter.TIMECOUNTED_Hh_mm_ss(rowSelect)); % backwards in time, clock-adjusted            
                 capCal = mlcapintec.CapracCalibration.createFromSession(sesd);
                 activityDensityCapr = capCal.activityDensity('mass', mass, 'ge68', ge68, 'solvent', 'water');
-                activityDensityCapr = this.shiftWorldLines(activityDensityCapr, shift, this.radionuclide_.halflife); 
-
-                % get twilite calibration from most time-proximal calibration measurements
+                activityDensityCapr = this.shiftWorldLines(activityDensityCapr, shift, this.radionuclide_.halflife);
                 this.twiliteData_ = mlswisstrace.TwiliteData.createFromSession(sesd);
-                offset = 0;
-                while ~this.calibrationAvailable                    
-                    sesd = this.searchForCalibrationSession(sesd, offset);
-                    this.twiliteData_ = mlswisstrace.TwiliteData.createFromSession(sesd);
-                    offset = offset + 1;
-                end
                 this.invEfficiency_ = mean(activityDensityCapr)/mean(this.activityDensityForCal());
             catch ME
                 handwarning(ME)
@@ -114,51 +133,6 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
             end
         end
     end
-    
-    %% PRIVATE
-    
-    methods (Access = private)
-        function sesd = searchForCalibrationSession(this, sesd, offset)
-            datetimeBest = datetime(sesd);
-            fdgCrvs = globT(fullfile(mlnipet.Resources.instance().CCIR_RAD_MEASUREMENTS_DIR, 'Twilite', 'CRV', '*fdg*.crv'));
-            dates = this.crv2date(fdgCrvs);
-            [~,idx] = min(abs(dates - datetimeBest));
-            sesd = this.date2sessionData(dates(idx + offset), sesd);
-        end
-        function sesd = date2sessionData(this, date, sesd)
-            home = getenv('SINGULARITY_HOME');
-            assert(~isempty(home))
-            for project = globFoldersT(fullfile(home, 'CCIR_*'))
-                for session = globFoldersT(fullfile(project{1}, 'ses-E*'))
-                    for fdg = globFoldersT(fullfile(session{1}, 'FDG_DT*-Converted-AC'))
-                        if this.containsDate(fdg{1}, date)
-                            sesd = sesd.create(fullfile(mybasename(project{1}), mybasename(session{1}), mybasename(fdg{end})));
-                            return
-                        end
-                    end
-                end
-            end            
-            error('mlswisstrace:RuntimeError', ...
-                'TwiliteCalibration.date2sessionData could not find sessionData for date %s', datestr(date))
-        end
-        function tf = containsDate(~, str, date)
-            tf = lstrfind(str, datestr(date, 'yyyymmdd'));
-        end
-        function d = crv2date(this, crv)
-            if iscell(crv)
-                dates = cellfun(@(x) this.crv2date(x), crv, 'UniformOutput', false);
-                dates = dates';
-                T = cell2table(dates);
-                d = T.dates;
-                return
-            end
-            
-            % base case
-            assert(ischar(crv))            
-            ss = strsplit(mybasename(crv), 'dt');
-            d = datetime(ss{2}, 'InputFormat', 'yyyyMMdd');            
-        end
-    end 
 
 	%  Created with Newcl by John J. Lee after newfcn by Frank Gonzalez-Morphy
  end
