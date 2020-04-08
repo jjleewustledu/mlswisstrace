@@ -44,9 +44,10 @@ classdef Test_TwiliteCalibration < matlab.unittest.TestCase
             obj = mlswisstrace.TwiliteCalibration.createFromSession(ses);
             disp(obj)            
             this.verifyTrue(obj.calibrationAvailable)
-            this.verifyEqual(obj.invEfficiency, 1.275453268510383, 'RelTol', 1e-12)
+            this.verifyEqual(length(obj.invEfficiency), 9)
+            this.verifyEqual(mean(obj.invEfficiency), 1.621730386414504, 'RelTol', 1e-12)
             obj.plot()
-        end        
+        end
         function test_census(this)
             singularity = getenv('SINGULARITY_HOME');
             for proj = globFoldersT(fullfile(singularity, 'CCIR_*'))

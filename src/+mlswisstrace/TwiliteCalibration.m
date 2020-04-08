@@ -47,8 +47,7 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
             
             assert(isa(obj, 'mlpipeline.ISessionData'))
             this = mlswisstrace.TwiliteCalibration.createFromSession(obj);
-            ie = this.invEfficiency;            
-            ie = asrow(ie);
+            ie = this.invEfficiency;
         end
     end
     
@@ -60,7 +59,7 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
             g = ~isempty(this.twiliteData_);
         end
         function g = get.invEfficiency(this)
-            g = this.invEfficiency_;                
+            g = asrow(this.invEfficiency_);
         end
         
         %%        

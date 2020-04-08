@@ -26,11 +26,17 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
                     'datetimeMeasured', sesd.datetime);
                 if lstrfind(lower(sesd.tracer), 'fdg')
                     fn = sprintf('*fdg_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
+                    fqfnCrvs = globT(fullfile(mlnipet.Resources.instance().CCIR_RAD_MEASUREMENTS_DIR, 'Twilite', 'CRV', fn));
+                    this.read(fqfnCrvs{1});
                 else
                     fn = sprintf('*o15_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
+                    fqfnCrvs = globT(fullfile(mlnipet.Resources.instance().CCIR_RAD_MEASUREMENTS_DIR, 'Twilite', 'CRV', fn));
+                    this.read(fqfnCrvs{1});
+                    this.findBaseline(this.datetimeMeasured);
+                    this.datetimeForDecayCorrection = sesd.datetime;
+                    this.timingData_.datetime0 = sesd.datetime;
+                    this.findBolus(sesd.datetime);
                 end
-                fqfnCrvs = globT(fullfile(mlnipet.Resources.instance().CCIR_RAD_MEASUREMENTS_DIR, 'Twilite', 'CRV', fn));
-                this.read(fqfnCrvs{1});
             catch ME
                 handwarning(ME)
             end
@@ -106,6 +112,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
                 this = this.decayCorrect();
                 this.decayCorrected_ = true;
             end
+            
             c = asrow(this.tableTwilite_.coincidences);
             c = c(ipr.index0:ipr.indexF);
             c = asrow(c);
@@ -162,7 +169,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             doseAdminIndex = round(seconds(doseAdminDatetime - this.datetimeMeasured));
             doseAdminIndex = max(doseAdminIndex, 1);
             terminationIndex = min(doseAdminIndex + 600, length(this.times));
-            thresh = 2*mean(this.baseline);
+            thresh = mean(this.baseline) + 3*std(this.baseline);
             
             % find index just prior to bolus inflow
             idx0 = 1;
@@ -174,10 +181,10 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             this.index0 = doseAdminIndex + idx0 - 1;
             
             % find index of bolus peak
-            [~,idxPeak] = max(this.countRate('index0', doseAdminIndex, 'indexF', terminationIndex));
+            [~,idxPeak] = max(this.countRate('index0', this.index0, 'indexF', terminationIndex));
             
             % find index just after bolus terminates
-            [~,idxF] = max(this.countRate('index0', doseAdminIndex+idxPeak, 'indexF', this.indexF) < thresh);
+            [~,idxF] = max(this.countRate('index0', this.index0+idxPeak, 'indexF', this.indexF) < thresh);
             this.indexF = this.index0 + idxPeak + idxF - 1;
             if idxF == 1 && this.indexF < this.indices(end)                
                 % manage bolus that persists to end of data
@@ -188,6 +195,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
         end
         function this = read(this, varargin)
             %% updates datetimeMeasured and timingData_.times
+            %  @param required fqfnCrv is file.
             
             ip = inputParser;
             addRequired(ip, 'fqfnCrv', @isfile)

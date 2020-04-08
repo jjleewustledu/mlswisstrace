@@ -128,8 +128,8 @@ classdef Test_TwiliteData < matlab.unittest.TestCase
  			o = TwiliteData.createFromSession(this.sesd_oc);
             o.findBaseline(this.doseAdminDatetime1st);
             o.findBolus(this.doseAdminDatetimeOC);
-            this.verifyEqual(o.index0, 9630)
-            this.verifyEqual(o.indexF, 9914)
+            this.verifyEqual(o.index0, 9629)
+            this.verifyEqual(o.indexF, 9901)
             p = plot(o, ...
                 'this.times(this.index0:this.indexF)', ...
                 'this.activityDensity(''decayCorrected'', true, ''index0'', this.index0, ''indexF'',this.indexF)');
