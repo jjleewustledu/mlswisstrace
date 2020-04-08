@@ -6,17 +6,35 @@ classdef Catheter_DT20190930
  	%  last modified $LastChangedDate$ and placed into repository /Users/jjlee/MATLAB-Drive/mlswisstrace/src/+mlswisstrace.
  	%% It was developed on Matlab 9.7.0.1296695 (R2019b) Update 4 for MACI64.  Copyright 2020 John Joowon Lee.
  	
-	properties
+	properties (Constant)
+        dt = 1
+        t0 = 9.8671 % mean from data of 2019 Sep 30
+    end
+    
+    properties
         hct
         Measurement
-        t0 = 9.8671 % mean from data of 2019 Sep 30
- 		timeInterpolants
+        sgolayWindow1 = 12
+        sgolayWindow2 = 4
+    end
+    
+    properties (Dependent)
+ 		timeInterpolants        
     end
 
 	methods 
+        
+        %% GET
+        
+        function g = get.timeInterpolants(this)
+            g = 0:this.dt:length(this.Measurement)-1;
+        end
+        
+        %%
+        
         function [q,r] = deconv(this, varargin)
             k = this.kernel;
-            M = smoothdata(this.Measurement, 'sgolay', 12);
+            M = smoothdata(this.Measurement, 'sgolay', this.sgolayWindow1);
             
             ip = inputParser;
             ip.KeepUnmatched = true;
@@ -27,12 +45,15 @@ classdef Catheter_DT20190930
             
             if ipr.Fourier
                 q = ifft(fft(M, ipr.N) ./ fft(k, ipr.N));
-                q = q(1:length(this.timeInterpolants));
+                q = q(1:min(length(this.timeInterpolants), ipr.N));
+                q = smoothdata(q, 'sgolay', this.sgolayWindow2);
+                q(q < 0) = 0;
                 r = [];
                 return
             end            
             [q,r] = deconv(M, k);
             q = q(1:length(this.timeInterpolants));
+            q(q < 0) = 0;
         end
         function k = kernel(this)
             %% including regressions on catheter data of 2019 Sep 30
@@ -84,6 +105,21 @@ classdef Catheter_DT20190930
         end
 		  
  		function this = Catheter_DT20190930(varargin)
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            addParameter(ip, 'Measurement', [], @isnumeric)
+            addParameter(ip, 'hct', 45, @isnumeric)
+            parse(ip, varargin{:})
+            ipr = ip.Results;
+            
+            this.Measurement = ipr.Measurement;
+            if iscell(ipr.hct)
+                ipr.hct = ipr.hct{1};
+            end
+            if ischar(ipr.hct)
+                ipr.hct = str2double(ipr.hct);
+            end
+            this.hct = ipr.hct;
  		end
     end     
     
