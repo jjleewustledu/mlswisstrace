@@ -1,4 +1,4 @@
-classdef GammaDistributions < handle & mlnest.AbstractApply
+classdef GammaDistributions < handle & mlnest.AbstractHandleApply
 	%% GAMMADISTRIBUTIONS  
 
 	%  $Revision$
@@ -152,7 +152,7 @@ classdef GammaDistributions < handle & mlnest.AbstractApply
             %  @param sigma0
             %  @param modelName
             
-            this = this@mlnest.AbstractApply(varargin{:});
+            this = this@mlnest.AbstractHandleApply(varargin{:});
             
             ip = inputParser;            
             ip.KeepUnmatched = true;

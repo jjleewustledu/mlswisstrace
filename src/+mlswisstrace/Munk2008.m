@@ -1,4 +1,4 @@
-classdef Munk2008 < handle & mlnest.AbstractApply
+classdef Munk2008 < handle & mlnest.AbstractHandleApply
 	%% Munk2008  
 
 	%  $Revision$
@@ -52,7 +52,7 @@ classdef Munk2008 < handle & mlnest.AbstractApply
  			%% Munk2008
  			%  @param .
 
- 			this = this@mlnest.AbstractApply(varargin{:});
+ 			this = this@mlnest.AbstractHandleApply(varargin{:});
             
             ip = inputParser;            
             ip.KeepUnmatched = true;
