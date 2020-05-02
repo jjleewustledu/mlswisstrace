@@ -27,7 +27,14 @@ classdef Catheter_DT20190930
         %% GET
         
         function g = get.timeInterpolants(this)
-            g = 0:this.dt:length(this.Measurement)-1;
+            if isempty(this.timeInterpolants_)
+                g = 0:this.dt:length(this.Measurement)-1;
+                return
+            end
+            g = this.timeInterpolants_;
+        end
+        function this = set.timeInterpolants(this, s)
+            this.timeInterpolants_ = s;
         end
         
         %%
@@ -126,6 +133,7 @@ classdef Catheter_DT20190930
     %% PROTECTED
     
     properties (Access = protected)
+        timeInterpolants_
     end
     
     methods (Static, Access = protected)

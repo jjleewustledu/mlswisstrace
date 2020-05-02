@@ -25,7 +25,6 @@ classdef Test_Catheter_DT20190930 < matlab.unittest.TestCase
         end
         function test_ctor(this)
             this.testObj.hct = 45;
-            this.testObj.t0 = 8.5;
             this.testObj.timeInterpolants = 0:1:299;
             
             figure
@@ -40,7 +39,6 @@ classdef Test_Catheter_DT20190930 < matlab.unittest.TestCase
             % kernel, Measurement, Fourier deconv, aifModel, aifKnown
             
             this.testObj.hct = 45;
-            this.testObj.t0 = 8.5;
             this.testObj.timeInterpolants = 0:1:299;
             
             tbl_ = this.calibrationTable_(1,:);            
