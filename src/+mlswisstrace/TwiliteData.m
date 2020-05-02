@@ -10,12 +10,13 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
         baseline % countRate
         baselineSup
         pumpRate 
+        radMeasurements
         tableTwilite % all stored data
         visibleVolume 
     end
     
     methods (Static)
-        function this = createFromSession(sesd)
+        function this = createFromSession(sesd, varargin)
             this = [];
             assert(isa(sesd, 'mlpipeline.ISessionData'))
             
@@ -23,7 +24,8 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
                 this = mlswisstrace.TwiliteData( ...
                     'isotope', sesd.isotope, ...
                     'tracer', sesd.tracer, ...
-                    'datetimeMeasured', sesd.datetime);
+                    'datetimeMeasured', sesd.datetime, ...
+                    varargin{:});
                 if lstrfind(lower(sesd.tracer), 'fdg')
                     fn = sprintf('*fdg_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
                     fqfnCrvs = globT(fullfile(mlnipet.Resources.instance().CCIR_RAD_MEASUREMENTS_DIR, 'Twilite', 'CRV', fn));
@@ -57,6 +59,9 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             %% default := 5 mL/min
             
             g = this.pumpRate_;
+        end
+        function g = get.radMeasurements(this)
+            g = this.radMeasurements_;
         end
         function g = get.tableTwilite(this)
             g = this.tableTwilite_;
@@ -257,6 +262,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             addParameter(ip, 'pumpRate', 5, @isnumeric)
             addParameter(ip, 'visibleVolume', NaN, @isnumeric)
             addParameter(ip, 'activityOverCountRate', 40, @isnumeric)
+            addParameter(ip, 'radMeasurements', [], @(x) isa(x, 'mlpet.RadMeasurements'))
             parse(ip, varargin{:})
             ipr = ip.Results;
             
@@ -264,6 +270,9 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             this.visibleVolume_ = ipr.visibleVolume;
             this.activityOverCountRate_ = ipr.activityOverCountRate;
             this.decayCorrected_ = false;
+            if ~isempty(ipr.radMeasurements)
+                this.radMeasurements_ = ipr.radMeasurements;
+            end
  		end
     end 
     
@@ -273,6 +282,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
         activityOverCountRate_
         baseline_ % as countRate
         pumpRate_
+        radMeasurements_
         tableTwilite_
         visibleVolume_
     end
