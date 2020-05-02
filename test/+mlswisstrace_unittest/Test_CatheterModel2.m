@@ -59,7 +59,8 @@ classdef Test_CatheterModel2 < matlab.unittest.TestCase
 
  	methods (TestMethodSetup)
 		function setupCatheterModel2Test(this)
- 			this.testObj = copy(this.testObj_);
+ 			%this.testObj = copy(this.testObj_);
+            this.testObj = this.testObj_;
  			this.addTeardown(@this.cleanTestMethod);
             rng('default')
  		end
