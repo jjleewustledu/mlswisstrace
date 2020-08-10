@@ -233,6 +233,9 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             %  @param Dt is numeric.
             
             assert(isnumeric(Dt))
+            assert(isscalar(this.halflife))
+            assert(isrow(this.datetimeMeasured))
+            
             Dt = asrow(Dt);
             c = asrow(this.tableTwilite.coincidences);
             this.tableTwilite_.coincidences = ascol(c .* 2.^(-Dt/this.halflife));
