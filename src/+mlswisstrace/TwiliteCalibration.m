@@ -62,7 +62,7 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
         
         %%        
         
-        function ad = activityDensityForCal(this)
+        function [ad,td] = activityDensityForCal(this)
             %% finds the temporally most proximate Twilite cal data and estimates activity density in Bq/mL.
             
             td = copy(this.twiliteData_);
@@ -83,12 +83,12 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
             td.resetTimeLimits;
             h1 = td.plot();
             h2 = figure;
-            ad = this.activityDensityForCal();
+            [ad,td] = this.activityDensityForCal();
             plot(ad);
             xlabel('indices')
             ylabel('activity density / (Bq/mL)')
             title('mlswisstrace.TwiliteCalibration.plot():this.activityDensityForCal()')
-            text(1, ad(1), datestr(this.twiliteData_.datetimeMeasured))
+            text(10, (max(ad) - min(ad))/2, ['sampling start: ' datestr(td.datetime0)])
         end
         
     end
