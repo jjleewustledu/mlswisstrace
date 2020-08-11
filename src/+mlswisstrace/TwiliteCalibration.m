@@ -21,24 +21,13 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
             
             import mlswisstrace.TwiliteCalibration
             
-            ip = inputParser;
-            ip.KeepUnmatched = true;
-            addRequired(ip, 'sesd', @(x) isa(x, 'mlpipeline.ISessionData'))
-            addParameter(ip, 'offset', 1, @isnumeric)
-            parse(ip, sesd, varargin{:})
-            ipr = ip.Results;
+            this = TwiliteCalibration(sesd, varargin{:});                
             
-            try
-                this = TwiliteCalibration(sesd, varargin{:});
-                
-                % get twilite calibration from most time-proximal calibration measurements
-                if ~this.calibrationAvailable
-                    error('mlswisstrace:ValueError', 'TwiliteCalibration.calibrationAvailable -> false')
-                end
-            catch ME
-                handwarning(ME)
-                sesd = TwiliteCalibration.findProximalSession(sesd, ipr.offset);
-                this = TwiliteCalibration.createFromSession(sesd, 'offset', ipr.offset+1);
+            offset = 0;
+            while ~this.calibrationAvailable              
+                offset = offset + 1;
+                sesd1 = sesd.findProximal(offset);
+                this = TwiliteCalibration(sesd1, varargin{:});
             end
         end
         function ie = invEfficiencyf(obj)
@@ -106,28 +95,36 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
  		function this = TwiliteCalibration(sesd, varargin)
  			this = this@mlpet.AbstractCalibration(varargin{:});
             
-            % get activity density from Caprac
-            if isempty(this.radMeasurements_)
-                this.radMeasurements_ = mlpet.CCIRRadMeasurements.createFromSession(sesd);
-            end
-            rm = this.radMeasurements_;            
-            rowSelect = strcmp(rm.wellCounter.TRACER, '[18F]DG') & ...
-                isnice(rm.wellCounter.MassSample_G) & ...
-                isnice(rm.wellCounter.Ge_68_Kdpm);
-            mass = rm.wellCounter.MassSample_G(rowSelect);
-            ge68 = rm.wellCounter.Ge_68_Kdpm(rowSelect); 
-            
             try
+                % update for new sesd
+                if isempty(this.radMeasurements_) || ...
+                        ~strcmp(this.radMeasurements_.sessionData.scanPath, sesd.scanPath)
+                    this.radMeasurements_ = mlpet.CCIRRadMeasurements.createFromSession(sesd);
+                end
+
+                % get activity density from Caprac
+                
+                rm = this.radMeasurements_;            
+                rowSelect = strcmp(rm.wellCounter.TRACER, '[18F]DG') & ...
+                    isnice(rm.wellCounter.MassSample_G) & ...
+                    isnice(rm.wellCounter.Ge_68_Kdpm);
+                mass = rm.wellCounter.MassSample_G(rowSelect);
+                ge68 = rm.wellCounter.Ge_68_Kdpm(rowSelect); 
                 shift = seconds( ...
                     rm.mMR.scanStartTime_Hh_mm_ss(1) - ...
                     seconds(rm.clocks.TimeOffsetWrtNTS____s('mMR console')) - ...
                     rm.wellCounter.TIMECOUNTED_Hh_mm_ss(rowSelect)); % backwards in time, clock-adjusted            
-                capCal = mlcapintec.CapracCalibration.createFromSession(sesd, 'radMeasurements', rm);
+                capCal = mlcapintec.CapracCalibration.createFromSession(sesd, 'radMeasurements', rm, 'exactMatch', true);
                 activityDensityCapr = capCal.activityDensity('mass', mass, 'ge68', ge68, 'solvent', 'water');
                 activityDensityCapr = this.shiftWorldLines(activityDensityCapr, shift, this.radionuclide_.halflife);
+                
+                % get activity density from Twilite data sources && form efficiency^{-1}
+                
                 this.twiliteData_ = mlswisstrace.TwiliteData.createFromSession(sesd, 'radMeasurements', rm);
                 this.invEfficiency_ = mean(activityDensityCapr)/mean(this.activityDensityForCal());
             catch ME
+                
+                % calibration data was inadequate, but proximal session may be useable
                 handwarning(ME)
                 this.twiliteData_ = [];
                 this.invEfficiency_ = NaN;

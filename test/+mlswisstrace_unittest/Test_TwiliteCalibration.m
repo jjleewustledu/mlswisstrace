@@ -16,6 +16,36 @@ classdef Test_TwiliteCalibration < matlab.unittest.TestCase
  	end
 
 	methods (Test)
+        function test_20160909(this)
+            str = 'CCIR_00754/ses-E190711/FDG_DT20160909135434.000000-Converted-AC';
+            sesd = mlraichle.SessionData.create(str);
+            tcal = mlswisstrace.TwiliteCalibration.createFromSession(sesd);
+            sesd1 = tcal.sessionData;
+            ss = split(sesd.scanPath, 'Singularity/');
+            ss1 = split(sesd1.scanPath, 'Singularity/');
+            fprintf('\n')
+            fprintf('test_census:\n')
+            fprintf('    requested: %s\n', ss{2})
+            fprintf('    found:     %s\n', ss1{2})
+            fprintf('    eff^{-1} = %g\n', tcal.invEfficiency)
+            fprintf('\n') 
+            tcal.plot()
+        end
+        function test_20180601(this)
+            str = 'CCIR_00559/ses-E251344/FDG_DT20180601125239.000000-Converted-AC';
+            sesd = mlraichle.SessionData.create(str);
+            tcal = mlswisstrace.TwiliteCalibration.createFromSession(sesd);
+            sesd1 = tcal.sessionData;
+            ss = split(sesd.scanPath, 'Singularity/');
+            ss1 = split(sesd1.scanPath, 'Singularity/');
+            fprintf('\n')
+            fprintf('test_census:\n')
+            fprintf('    requested: %s\n', ss{2})
+            fprintf('    found:     %s\n', ss1{2})
+            fprintf('    eff^{-1} = %g\n', tcal.invEfficiency)
+            fprintf('\n') 
+            tcal.plot()
+        end
 		function test_afun(this)
  			import mlswisstrace.*;
  			this.assumeEqual(1,1);
@@ -44,27 +74,45 @@ classdef Test_TwiliteCalibration < matlab.unittest.TestCase
             obj = mlswisstrace.TwiliteCalibration.createFromSession(ses);
             disp(obj)            
             this.verifyTrue(obj.calibrationAvailable)
-            this.verifyEqual(length(obj.invEfficiency), 9)
-            this.verifyEqual(mean(obj.invEfficiency), 1.621730386414504, 'RelTol', 1e-12)
+            this.verifyEqual(length(obj.invEfficiency), 1)
+            this.verifyEqual(mean(obj.invEfficiency), 1.61928140927904, 'RelTol', 1e-12)
             obj.plot()
         end
         function test_census(this)
             singularity = getenv('SINGULARITY_HOME');
             for proj = globFoldersT(fullfile(singularity, 'CCIR_*'))
                 for ses = globFoldersT(fullfile(proj{1}, 'ses-E*'))
-                    for fdg = globFoldersT(fullfile(ses{1}, 'FDG_DT*-Converted-AC'))
-                        str = fullfile(mybasename(proj{1}), mybasename(ses{1}), mybasename(fdg{end}));
-                        sesd = mlraichle.SessionData.create(str);
-                        try
-                            if datetime(sesd) > datetime(2016, 4, 1, 'TimeZone', 'America/Chicago')
-                                disp(sesd)
-                                tcal = mlswisstrace.TwiliteCalibration.createFromSession(sesd);
-                                this.verifyTrue(isrow(tcal.invEfficiencyf(sesd)));
-                                tcal.plot()
-                            end
-                        catch ME
-                            handwarning(ME)
+                    try
+                        fdgs = globFoldersT(fullfile(ses{1}, 'FDG_DT*-Converted-AC'));
+                        if isempty(fdgs)
+                            % e.g., CT session or aborted session
+                            continue
                         end
+                        if isempty(globFoldersT(fullfile(ses{1}, 'OC_DT*-Converted-AC')))
+                            % ignore sessions containing only Twilite data which are linked to session data from
+                            % subject
+                            continue
+                        end
+                        str = fullfile(mybasename(proj{1}), mybasename(ses{1}), mybasename(fdgs{end}));
+                        sesd = mlraichle.SessionData.create(str);
+                        if datetime(sesd) > mlraichle.StudyRegistry.instance().earliestCalibrationDatetime
+                            disp(repmat('=', [1 length(str)]))
+                            disp(str)
+                            disp(repmat('=', [1 length(str)]))
+                            tcal = mlswisstrace.TwiliteCalibration.createFromSession(sesd);
+                            sesd1 = tcal.sessionData;
+                            ss = split(sesd.scanPath, 'Singularity/');
+                            ss1 = split(sesd1.scanPath, 'Singularity/');
+                            fprintf('\n')
+                            fprintf('test_census:\n')
+                            fprintf('    requested: %s\n', ss{2})
+                            fprintf('    found:     %s\n', ss1{2})
+                            fprintf('    eff^{-1} = %g\n', tcal.invEfficiency)
+                            fprintf('\n')                                
+                            tcal.plot()
+                        end
+                    catch ME
+                        handwarning(ME)
                     end
                 end
             end
@@ -77,12 +125,11 @@ classdef Test_TwiliteCalibration < matlab.unittest.TestCase
             tcal.plot()
             
         end
-        function test_findProximalSession(this)
+        function test_findProximal(this)
             sesd = mlraichle.SessionData.create('CCIR_00754/ses-E186470/FDG_DT20160408121938.000000-Converted-AC');
             disp(sesd)
             tcal = mlswisstrace.TwiliteCalibration.createFromSession(sesd);
             tcal.plot()            
-            
         end
         function test_shortCalibration(this)
             sesd = mlraichle.SessionData.create('CCIR_00559/ses-E251344/FDG_DT20180601125239.000000-Converted-AC');
