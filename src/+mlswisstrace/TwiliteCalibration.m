@@ -1,5 +1,6 @@
 classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
 	%% TWILITECALIBRATION  
+    %  get.invEfficiency() traps known defects using sessionData identifiers.
 
 	%  $Revision$
  	%  was created 19-Jul-2017 23:38:06 by jjlee,
@@ -9,6 +10,7 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
     properties (Dependent)
         calibrationAvailable
         invEfficiency
+        twiliteData
     end
     
     methods (Static)
@@ -45,10 +47,17 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
         %% GET
         
         function g = get.calibrationAvailable(this)
-            g = ~isempty(this.twiliteData_);
+            g = ~isempty(this.twiliteData_) && ~isnan(this.invEfficiency);
         end
         function g = get.invEfficiency(this)
+            if strcmp(this.sessionData.scanFolder, 'FDG_DT20180601125239.000000-Converted-AC')
+                g = 1.643;
+                return
+            end
             g = asrow(this.invEfficiency_);
+        end
+        function g = get.twiliteData(this)
+            g = this.twiliteData_;
         end
         
         %%        
