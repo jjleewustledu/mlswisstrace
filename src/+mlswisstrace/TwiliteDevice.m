@@ -21,7 +21,12 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
             data.time0 = data.time0 - Dt;
             rm   = mlpet.CCIRRadMeasurements.createFromSession(varargin{:});
             hct  = rm.fromPamStone{'Hct',1};
-            hct  = str2double(hct{1});
+            if iscell(hct)
+                hct = hct{1};
+            end
+            if ischar(hct)
+                hct = str2double(hct);
+            end
             this = mlswisstrace.TwiliteDevice( ...
                 'calibration', mlswisstrace.TwiliteCalibration.createFromSession( ...
                     findCalibrationSession(varargin{:})), ...
