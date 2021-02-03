@@ -77,6 +77,9 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
             
             c = this.data_.countRate(varargin{:});
         end
+        function this = imputeSteadyStateActivityDensity(this, varargin)
+            this.data_ = this.data_.imputeSteadyStateActivityDensity(varargin{:});
+        end
     end 
     
     %% PROTECTED

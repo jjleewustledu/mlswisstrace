@@ -38,6 +38,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
                     this.datetimeForDecayCorrection = sesd.datetime;
                     this.timingData_.datetime0 = sesd.datetime;
                     this.findBolus(sesd.datetime);
+                    this.removeBaseline();
                 end
             catch ME
                 handwarning(ME)
@@ -128,10 +129,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             if this.decayCorrected_
                 return
             end
-            if ~isnice(this.baseline)
-                this.findBaseline(this.datetimeMeasured);
-            end
-            c = this.tableTwilite.coincidences - mean(this.baseline);
+            c = this.tableTwilite.coincidences;
             c = asrow(c) .* 2.^( (this.times - this.timeForDecayCorrection)/this.halflife);
             this.tableTwilite_.coincidences = ascol(c);
             this.decayCorrected_ = true;
@@ -198,6 +196,37 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             
             assert(this.indexF > this.index0, 'mlswisstrace:ValueError', 'TwiliteData.findBolus()')
         end
+        function this = imputeSteadyStateActivityDensity(this, varargin)
+            %% @param required t1 is the time at which to start imputation.
+            %  @param optional t2 is the time at which to start imputation; default := timeF.
+            %                  If t2 > timeF, timeF is moved forward.
+            %  @param window is the time interval (sec) immediately prior to t1 that will be averaged for imputation.
+            
+            ip = inputParser;
+            addRequired(ip, 't1', @isscalar)
+            addOptional(ip, 't2', this.timeF, @isscalar)
+            addParameter(ip, 'window', 20, @isscalar)
+            parse(ip, varargin{:})
+            ipr = ip.Results;
+            if ipr.t2 > this.timeF
+                this.timeF = ipr.t2;
+            end
+            
+            windowTimes = ipr.t1-ipr.window:ipr.t1;
+            targetTimes = ipr.t1:ipr.t2;
+            if this.decayCorrected
+                coin = this.tableTwilite_.coincidences;
+                imputation = mean(coin(windowTimes+1));
+                coin(targetTimes+1) = imputation;
+                this.tableTwilite_.coincidences = coin;
+            else                
+                coin = this.tableTwilite_.coincidences;
+                imputation = coin(windowTimes+1) .* 2.^((windowTimes' - ipr.t1)/this.halflife);
+                imputation = mean(imputation);                
+                coin(targetTimes+1) = imputation .* 2.^(-(targetTimes' - ipr.t1)/this.halflife);
+                this.tableTwilite_.coincidences = coin;
+            end
+        end
         function this = read(this, varargin)
             %% updates datetimeMeasured and timingData_.times
             %  @param required fqfnCrv is file.
@@ -227,6 +256,12 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
                 'VariableNames', {'datetime' 'coincidences' 'channel1' 'channel2'});
             this.timingData_.datetimeMeasured = dt(1);
             this.timingData_.times = this.timingData_.timing2num(dt - dt(1));
+        end
+        function this = removeBaseline(this)            
+            if ~all(isnice(this.baseline))
+                this.findBaseline(this.datetimeMeasured);
+            end 
+            this.tableTwilite_.coincidences = this.tableTwilite_.coincidences - mean(this.baseline);
         end
         function this = shiftWorldlines(this, Dt)
             %% shifts worldline of internal data self-consistently
