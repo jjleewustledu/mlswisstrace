@@ -9,6 +9,7 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
 	properties (Dependent)
         baseline
  		calibrationAvailable
+        Dt
         hct
  	end
     
@@ -49,6 +50,13 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         function g = get.calibrationAvailable(this)
             g = this.calibration_.calibrationAvailable;
         end
+        function g = get.Dt(this)
+            g = this.Dt_;
+        end
+        function     set.Dt(this, s)
+            assert(isscalar(s))
+            this.Dt_ = s;
+        end
         function g = get.hct(this)
             g = this.catheter_.hct;
         end
@@ -86,6 +94,7 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
     
     properties (Access = protected)
         catheter_
+        Dt_
         invEfficiency_
     end
     
