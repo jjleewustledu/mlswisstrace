@@ -9,6 +9,7 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
 	properties (Dependent)
         baseline
  		calibrationAvailable
+        deconvCatheter
         Dt
         hct
  	end
@@ -50,6 +51,12 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         function g = get.calibrationAvailable(this)
             g = this.calibration_.calibrationAvailable;
         end
+        function g = get.deconvCatheter(this)
+            g = this.deconvCatheter_;
+        end
+        function     set.deconvCatheter(this, s)
+            this.deconvCatheter_ = s;
+        end
         function g = get.Dt(this)
             g = this.Dt_;
         end
@@ -68,6 +75,10 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
             %  @param decayCorrected, default := false.
  			%  @param datetimeForDecayCorrection updates internal.
             
+            if ~this.deconvCatheter                
+                a = this.invEfficiency_*this.data_.activity(varargin{:});
+                return
+            end
             this.catheter_.Measurement = this.invEfficiency_*this.data_.activity(varargin{:});
             a = this.catheter_.deconv();
         end
@@ -94,6 +105,7 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
     
     properties (Access = protected)
         catheter_
+        deconvCatheter_
         Dt_
         invEfficiency_
     end
@@ -110,11 +122,13 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
             ip = inputParser;
             ip.KeepUnmatched = true;
             addParameter(ip, 'hct', 45, @isnumeric)
+            addParameter(ip, 'deconvCatheter', true, @islogical)
             parse(ip, varargin{:})
             
             this.catheter_ = mlswisstrace.Catheter_DT20190930( ...
                 'Measurement', this.countRate, 'hct', ip.Results.hct);
             this.invEfficiency_ = mean(this.calibration_.invEfficiency) * RefSourceCalibration.invEfficiencyf();
+            this.deconvCatheter_ = ip.Results.deconvCatheter;
  		end
     end
 
