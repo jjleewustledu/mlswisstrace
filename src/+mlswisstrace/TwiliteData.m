@@ -263,18 +263,25 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             end 
             this.tableTwilite_.coincidences = this.tableTwilite_.coincidences - mean(this.baseline);
         end
-        function this = shiftWorldlines(this, Dt)
+        function this = shiftWorldlines(this, Dt, varargin)
             %% shifts worldline of internal data self-consistently
-            %  @param Dt is numeric.
+            %  @param required Dt is scalar:  timeShift > 0 shifts into future; timeShift < 0 shifts into past.
+            %  @param shiftDatetimeMeasured is logical.
             
-            assert(isnumeric(Dt))
+            ip = inputParser;
+            addRequired(ip, 'Dt', @isscalar)
+            addParameter(ip, 'shiftDatetimeMeasured', true, @islogical)
+            parse(ip, Dt, varargin{:})
             assert(isscalar(this.halflife))
             assert(isrow(this.datetimeMeasured))
             
             Dt = asrow(Dt);
             c = asrow(this.tableTwilite.coincidences);
             this.tableTwilite_.coincidences = ascol(c .* 2.^(-Dt/this.halflife));
-            this.datetimeMeasured = this.datetimeMeasured + seconds(Dt);
+            
+            if ip.Results.shiftDatetimeMeasured
+                this.datetimeMeasured = this.datetimeMeasured + seconds(Dt);
+            end
         end
 		  
  		function this = TwiliteData(varargin)
