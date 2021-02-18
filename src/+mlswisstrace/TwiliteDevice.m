@@ -71,7 +71,7 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         %%        
         
         function a = activity(this, varargin)
-            %% is calibrated to ref-source and catheter-adjusted; Bq
+            %% is calibrated to ref-source and catheter-adjusted and shifted in worldline; Bq
             %  @param decayCorrected, default := false.
  			%  @param datetimeForDecayCorrection updates internal.
             
@@ -81,6 +81,7 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
             end
             this.catheter_.Measurement = this.invEfficiency_*this.data_.activity(varargin{:});
             a = this.catheter_.deconv();
+            a = a .* 2.^(this.catheter_.t0/this.halflife);
         end
         function a = activityDensity(this, varargin)
             %% is calibrated to ref-source and catheter-adjusted; Bq/mL
