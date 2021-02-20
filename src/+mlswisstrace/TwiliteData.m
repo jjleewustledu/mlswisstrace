@@ -38,7 +38,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
                     this.datetimeForDecayCorrection = sesd.datetime;
                     this.timingData_.datetime0 = sesd.datetime;
                     this.findBolus(sesd.datetime);
-                    this.removeBaseline();
+                    %this.removeBaseline();
                 end
             catch ME
                 handwarning(ME)
@@ -129,7 +129,11 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             if this.decayCorrected_
                 return
             end
-            c = this.tableTwilite.coincidences;
+            if ~isnice(this.baseline)
+                this.findBaseline(this.datetimeMeasured);
+            end
+            c = this.tableTwilite.coincidences - mean(this.baseline);
+            c(c < 0) = 0;
             c = asrow(c) .* 2.^( (this.times - this.timeForDecayCorrection)/this.halflife);
             this.tableTwilite_.coincidences = ascol(c);
             this.decayCorrected_ = true;
