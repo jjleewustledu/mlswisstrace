@@ -7,7 +7,9 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
  	%% It was developed on Matlab 9.4.0.813654 (R2018a) for MACI64.  Copyright 2018 John Joowon Lee.
  	
     properties (Dependent)
-        baseline % countRate
+        baselineActivity
+        baselineActivityDensity
+        baselineCountRate % countRate
         baselineSup
         pumpRate 
         radMeasurements
@@ -38,7 +40,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
                     this.datetimeForDecayCorrection = sesd.datetime;
                     this.timingData_.datetime0 = sesd.datetime;
                     this.findBolus(sesd.datetime);
-                    %this.removeBaseline();
+                    this.removeBaselineCountRate();
                 end
             catch ME
                 handwarning(ME)
@@ -49,9 +51,14 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
 	methods
         
         %% GET
-        
-        function g = get.baseline(this)
-            g = this.baseline_;
+        function g = get.baselineActivity(this)
+            g = this.activityOverCountRate_*this.baselineCountRate;
+        end
+        function g = get.baselineActivityDensity(this)
+            g = this.baselineActivity/this.visibleVolume;
+        end
+        function g = get.baselineCountRate(this)
+            g = this.baselineCountRate_;
         end
         function g = get.baselineSup(~)
             g = 200;
@@ -124,15 +131,15 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             c = asrow(c);
         end
         function this = decayCorrect(this)
-            %% removes baseline from internal representation then decay-corrects
+            %% removes baselineCountRate from internal representation then decay-corrects
             
             if this.decayCorrected_
                 return
             end
-            if ~isnice(this.baseline)
+            if ~isnice(this.baselineCountRate)
                 this.findBaseline(this.datetimeMeasured);
             end
-            c = this.tableTwilite.coincidences - mean(this.baseline);
+            c = this.tableTwilite.coincidences - mean(this.baselineCountRate);
             c(c < 0) = 0;
             c = asrow(c) .* 2.^( (this.times - this.timeForDecayCorrection)/this.halflife);
             this.tableTwilite_.coincidences = ascol(c);
@@ -148,22 +155,22 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             this.decayCorrected_ = false;
         end
         function this = findBaseline(this, doseAdminDatetime1st)
-            %% FINDBASELINE infers baseline from datetimeMeasured to doseAdminDatetime1st,
+            %% FINDBASELINE infers baselineCountRate from datetimeMeasured to doseAdminDatetime1st,
             %  but if doseAdminDatetime1st <= datetimeMeasured || countRate('index0', 1, 'indexF', 10) excessively high, 
-            %  infers baseline from last 60 sec of available Twilite countRate.
+            %  infers baselineCountRate from last 60 sec of available Twilite countRate.
             
             assert(isdatetime(doseAdminDatetime1st) && ~isnat(doseAdminDatetime1st))
             if this.datetimeMeasured < doseAdminDatetime1st && mean(this.countRate('index0', 1, 'indexF',10)) < this.baselineSup
                 doseAdminIndex1st = round(seconds(doseAdminDatetime1st - this.datetimeMeasured));
                 doseAdminIndex1st = max(doseAdminIndex1st, 1);
-                this.baseline_ = this.countRate('index0', 1, 'indexF',doseAdminIndex1st);
+                this.baselineCountRate_ = this.countRate('index0', 1, 'indexF',doseAdminIndex1st);
             else
-                % infer baseline from last 60 sec of twiliteTable                
+                % infer baselineCountRate from last 60 sec of twiliteTable                
                 idxF = this.timingData_.indexF;
-                this.baseline_ = this.countRate('index0', idxF-59, 'indexF', idxF);
+                this.baselineCountRate_ = this.countRate('index0', idxF-59, 'indexF', idxF);
             end
             
-            assert(mean(this.baseline_) < 300, 'mlswisstrace:ValueError', 'TwiliteData.findBaseline')
+            assert(mean(this.baselineCountRate_) < 300, 'mlswisstrace:ValueError', 'TwiliteData.findBaseline')
         end
         function this = findBolus(this, doseAdminDatetime)
             %% FINDBOLUS finds start and termination of bolus; this.index0 := start; this.indexF := termination.
@@ -176,7 +183,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             doseAdminIndex = round(seconds(doseAdminDatetime - this.datetimeMeasured));
             doseAdminIndex = max(doseAdminIndex, 1);
             terminationIndex = min(doseAdminIndex + 600, length(this.times));
-            thresh = mean(this.baseline) + 3*std(this.baseline);
+            thresh = mean(this.baselineCountRate) + 3*std(this.baselineCountRate);
             
             % find index just prior to bolus inflow
             idx0 = 1;
@@ -261,11 +268,11 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             this.timingData_.datetimeMeasured = dt(1);
             this.timingData_.times = this.timingData_.timing2num(dt - dt(1));
         end
-        function this = removeBaseline(this)            
-            if ~all(isnice(this.baseline))
+        function this = removeBaselineCountRate(this)            
+            if ~all(isnice(this.baselineCountRate))
                 this.findBaseline(this.datetimeMeasured);
             end 
-            this.tableTwilite_.coincidences = this.tableTwilite_.coincidences - mean(this.baseline);
+            this.tableTwilite_.coincidences = this.tableTwilite_.coincidences - mean(this.baselineCountRate);
         end
         function this = shiftWorldlines(this, Dt, varargin)
             %% shifts worldline of internal data self-consistently
@@ -329,7 +336,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
     
     properties (Access = protected)
         activityOverCountRate_
-        baseline_ % as countRate
+        baselineCountRate_ % as countRate
         pumpRate_
         radMeasurements_
         tableTwilite_
