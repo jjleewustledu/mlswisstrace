@@ -7,7 +7,9 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
  	%% It was developed on Matlab 9.4.0.813654 (R2018a) for MACI64.  Copyright 2018 John Joowon Lee.
  	
 	properties (Dependent)
-        baseline
+        baselineActivity
+        baselineActivityDensity
+        baselineCountRate
  		calibrationAvailable
         deconvCatheter
         Dt
@@ -45,8 +47,14 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         
         %% GET
         
-        function g = get.baseline(this)
-            g = this.data_.baseline;
+        function g = get.baselineActivity(this)
+            g = this.data_.baselineActivity;
+        end
+        function g = get.baselineActivityDensity(this)
+            g = this.data_.baselineActivityDensity;
+        end
+        function g = get.baselineCountRate(this)
+            g = this.data_.baselineCountRate;
         end
         function g = get.calibrationAvailable(this)
             g = this.calibration_.calibrationAvailable;
@@ -75,13 +83,16 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
             %  @param decayCorrected, default := false.
  			%  @param datetimeForDecayCorrection updates internal.
             
-            if ~this.deconvCatheter                
-                a = this.invEfficiency_*this.data_.activity(varargin{:});
+            if ~this.deconvCatheter 
+                a = this.data_.activity(varargin{:});
+                a = this.invEfficiency_*a;
                 return
             end
-            this.catheter_.Measurement = this.invEfficiency_*this.data_.activity(varargin{:});
+            
+            this.catheter_.Measurement = this.data_.activity(varargin{:});
             a = this.catheter_.deconv();
-            a = a .* 2.^(this.catheter_.t0/this.halflife);
+            a = a .* 2.^(this.catheter_.t0/this.halflife); % catheter deconv doesn't know how to shift world-lines
+            a = this.invEfficiency_*a;
         end
         function a = activityDensity(this, varargin)
             %% is calibrated to ref-source and catheter-adjusted; Bq/mL
