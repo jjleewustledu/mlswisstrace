@@ -219,6 +219,8 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             addParameter(ip, 'window', 20, @isscalar)
             parse(ip, varargin{:})
             ipr = ip.Results;
+            ipr.t1 = floor(ipr.t1);
+            ipr.t2 = floor(ipr.t2);
             if ipr.t2 > this.timeF
                 this.timeF = ipr.t2;
             end
