@@ -5,7 +5,7 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
  	%  was created 18-Oct-2018 14:00:25 by jjlee,
  	%  last modified $LastChangedDate$ and placed into repository /Users/jjlee/MATLAB-Drive/mlswisstrace/src/+mlswisstrace.
  	%% It was developed on Matlab 9.4.0.813654 (R2018a) for MACI64.  Copyright 2018 John Joowon Lee.
- 	
+ 	    
 	properties (Dependent)
         baselineActivity
         baselineActivityDensity
@@ -14,6 +14,7 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         deconvCatheter
         Dt
         hct
+        timeCliff
  	end
     
     methods (Static)
@@ -22,7 +23,7 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
             
             data = mlswisstrace.TwiliteData.createFromSession(varargin{:});
             Dt   = 2*ceil(mlswisstrace.Catheter_DT20190930.t0); % provide room for delay corrections
-            data.time0 = data.time0 - Dt;
+            data.time0 = max(data.time0 - Dt, 0);
             rm   = mlpet.CCIRRadMeasurements.createFromSession(varargin{:});
             hct  = rm.fromPamStone{'Hct',1};
             if iscell(hct)
@@ -36,6 +37,12 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
                     findCalibrationSession(varargin{:})), ...
                 'data', data, ...
                 'hct', hct);
+            
+            if mean(this.countRate) < 2*mean(this.baselineCountRate)
+                error('mlswisstrace:ValueError', ...
+                    'TwiliteDevice.createFromSession:  mean(countRate) ~ %g but mean(baseline) ~ %g.', ...
+                    mean(countRate), mean(baselineCountRate))
+            end
         end
         function ie = invEfficiencyf(sesd)
             this =  mlswisstrace.TwiliteDevice.createFromSession(sesd);
@@ -75,6 +82,13 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         function g = get.hct(this)
             g = this.catheter_.hct;
         end
+        function g = get.timeCliff(this)
+            g = this.timeCliff_;
+        end
+        function     set.timeCliff(this, s)
+            assert(isscalar(s))
+            this.timeCliff_ = s;
+        end
 		  
         %%        
         
@@ -111,6 +125,15 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         function this = imputeSteadyStateActivityDensity(this, varargin)
             this.data_ = this.data_.imputeSteadyStateActivityDensity(varargin{:});
         end
+        function h = plotall(this, varargin)
+            %% PLOTALL
+            
+            h = figure;
+            tt = this.data_.tableTwilite;
+            plot(tt.datetime, tt.coincidences, '.', varargin{:});
+            ylabel('coincidence count rate / cps')
+            title(sprintf('%s.plot(%s)', class(this), this.data_.tracer))
+        end
     end 
     
     %% PROTECTED
@@ -120,6 +143,7 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         deconvCatheter_
         Dt_
         invEfficiency_
+        timeCliff_
     end
     
     methods (Access = protected)        

@@ -40,7 +40,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
                     this.datetimeForDecayCorrection = sesd.datetime;
                     this.timingData_.datetime0 = sesd.datetime;
                     this.findBolus(sesd.datetime);
-                    this.removeBaselineCountRate();
+                    %this.removeBaselineCountRate();
                 end
             catch ME
                 handwarning(ME)
@@ -183,7 +183,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             doseAdminIndex = round(seconds(doseAdminDatetime - this.datetimeMeasured));
             doseAdminIndex = max(doseAdminIndex, 1);
             terminationIndex = min(doseAdminIndex + 600, length(this.times));
-            thresh = mean(this.baselineCountRate) + 3*std(this.baselineCountRate);
+            thresh = mean(this.baselineCountRate) + 6*std(this.baselineCountRate);
             
             % find index just prior to bolus inflow
             idx0 = 1;

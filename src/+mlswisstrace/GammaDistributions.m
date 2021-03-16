@@ -61,7 +61,7 @@ classdef GammaDistributions < handle & mlnest.AbstractHandleApply
                 k = mlswisstrace.GammaDistributions.slide(abs(k), t, t0 - t(1));
             end 
             
-            k = k .* (1 + Obj.w*this.timeInterpolants);
+            k = k .* (1 + Obj.w*t); % better to apply slide, simplifying w
             sumk = sum(k);
             if sumk > eps
                 k = k/sumk;
@@ -107,7 +107,7 @@ classdef GammaDistributions < handle & mlnest.AbstractHandleApply
                 k = mlswisstrace.GammaDistributions.slide(abs(k), t, t0 - t(1));
             end
             
-            k = k .* (1 + w*this.timeInterpolants);            
+            k = k .* (1 + w*t); % better to apply slide, simplifying w         
             sumk = sum(k);
             if sumk > eps
                 k = k/sumk;
@@ -133,7 +133,7 @@ classdef GammaDistributions < handle & mlnest.AbstractHandleApply
                 k = mlswisstrace.GammaDistributions.slide(abs(k), t, t0 - t(1));
             end
             
-            k = k .* (1 + w*this.timeInterpolants);            
+            k = k .* (1 + w*t); % better to apply slide, simplifying w
             sumk = sum(k);
             if sumk > eps
                 k = k/sumk;

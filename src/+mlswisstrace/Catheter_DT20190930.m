@@ -62,6 +62,16 @@ classdef Catheter_DT20190930
             q = q(1:length(this.timeInterpolants));
             q(q < 0) = 0;
         end
+        function q = deconvBayes(this)
+            k = this.kernel;
+            M = this.Measurement;
+            a = mlswisstrace.RadialArteryLee2021( ...
+                'kernel', k, ...
+                'model_kind', '3bolus', ...
+                'Measurement', M);
+            a = a.solve(@mlswisstrace.RadialArteryLee2021Model.loss_function);
+            q = a.solution();
+        end
         function k = kernel(this)
             %% including regressions on catheter data of 2019 Sep 30
             
@@ -81,7 +91,7 @@ classdef Catheter_DT20190930
                 k = mlswisstrace.Catheter_DT20190930.slide(abs(k), t, this.t0 - t(1));
             end
             
-            k = k .* (1 + w*this.timeInterpolants);            
+            k = k .* (1 + w*t); % better to apply slide, simplifying w
             sumk = sum(k);
             if sumk > eps
                 k = k/sumk;
@@ -127,6 +137,7 @@ classdef Catheter_DT20190930
                 ipr.hct = str2double(ipr.hct);
             end
             this.hct = ipr.hct;
+            assert(this.hct > 1)
  		end
     end     
     
