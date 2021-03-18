@@ -110,6 +110,8 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
  			%  @param datetimeForDecayCorrection updates internal.
             
             ip = inputParser;
+            ip.KeepUnmatched = true;
+            ip.PartialMatching= false;
             addParameter(ip, 'decayCorrected', false, @islogical)
             addParameter(ip, 'datetimeForDecayCorrection', NaT, @(x) isnat(x) || isdatetime(x))
             addParameter(ip, 'index0', this.index0, @isnumeric)
@@ -207,39 +209,6 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             
             assert(this.indexF > this.index0, 'mlswisstrace:ValueError', 'TwiliteData.findBolus()')
         end
-        function this = imputeSteadyStateActivityDensity(this, varargin)
-            %% @param required t1 is the time at which to start imputation.
-            %  @param optional t2 is the time at which to start imputation; default := timeF.
-            %                  If t2 > timeF, timeF is moved forward.
-            %  @param window is the time interval (sec) immediately prior to t1 that will be averaged for imputation.
-            
-            ip = inputParser;
-            addRequired(ip, 't1', @isscalar)
-            addOptional(ip, 't2', this.timeF, @isscalar)
-            addParameter(ip, 'window', 20, @isscalar)
-            parse(ip, varargin{:})
-            ipr = ip.Results;
-            ipr.t1 = floor(ipr.t1);
-            ipr.t2 = floor(ipr.t2);
-            if ipr.t2 > this.timeF
-                this.timeF = ipr.t2;
-            end
-            
-            windowTimes = ipr.t1-ipr.window:ipr.t1;
-            targetTimes = ipr.t1:ipr.t2;
-            if this.decayCorrected
-                coin = this.tableTwilite_.coincidences;
-                imputation = mean(coin(windowTimes+1));
-                coin(targetTimes+1) = imputation;
-                this.tableTwilite_.coincidences = coin;
-            else                
-                coin = this.tableTwilite_.coincidences;
-                imputation = coin(windowTimes+1) .* 2.^((windowTimes' - ipr.t1)/this.halflife);
-                imputation = mean(imputation);                
-                coin(targetTimes+1) = imputation .* 2.^(-(targetTimes' - ipr.t1)/this.halflife);
-                this.tableTwilite_.coincidences = coin;
-            end
-        end
         function this = read(this, varargin)
             %% updates datetimeMeasured and timingData_.times
             %  @param required fqfnCrv is file.
@@ -269,12 +238,6 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
                 'VariableNames', {'datetime' 'coincidences' 'channel1' 'channel2'});
             this.timingData_.datetimeMeasured = dt(1);
             this.timingData_.times = this.timingData_.timing2num(dt - dt(1));
-        end
-        function this = removeBaselineCountRate(this)            
-            if ~all(isnice(this.baselineCountRate))
-                this.findBaseline(this.datetimeMeasured);
-            end 
-            this.tableTwilite_.coincidences = this.tableTwilite_.coincidences - mean(this.baselineCountRate);
         end
         function this = shiftWorldlines(this, Dt, varargin)
             %% shifts worldline of internal data self-consistently
@@ -343,6 +306,50 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
         radMeasurements_
         tableTwilite_
         visibleVolume_
+    end
+    
+    %% DEPRECAED
+    
+    methods (Hidden)
+        function this = imputeSteadyStateActivityDensity(this, varargin)
+            %% @param required t1 is the time at which to start imputation.
+            %  @param optional t2 is the time at which to start imputation; default := timeF.
+            %                  If t2 > timeF, timeF is moved forward.
+            %  @param window is the time interval (sec) immediately prior to t1 that will be averaged for imputation.
+            
+            ip = inputParser;
+            addRequired(ip, 't1', @isscalar)
+            addOptional(ip, 't2', this.timeF, @isscalar)
+            addParameter(ip, 'window', 20, @isscalar)
+            parse(ip, varargin{:})
+            ipr = ip.Results;
+            ipr.t1 = floor(ipr.t1);
+            ipr.t2 = floor(ipr.t2);
+            if ipr.t2 > this.timeF
+                this.timeF = ipr.t2;
+            end
+            
+            windowTimes = ipr.t1-ipr.window:ipr.t1;
+            targetTimes = ipr.t1:ipr.t2;
+            if this.decayCorrected
+                coin = this.tableTwilite_.coincidences;
+                imputation = mean(coin(windowTimes+1));
+                coin(targetTimes+1) = imputation;
+                this.tableTwilite_.coincidences = coin;
+            else                
+                coin = this.tableTwilite_.coincidences;
+                imputation = coin(windowTimes+1) .* 2.^((windowTimes' - ipr.t1)/this.halflife);
+                imputation = mean(imputation);                
+                coin(targetTimes+1) = imputation .* 2.^(-(targetTimes' - ipr.t1)/this.halflife);
+                this.tableTwilite_.coincidences = coin;
+            end
+        end
+        function this = removeBaselineCountRate(this)            
+            if ~all(isnice(this.baselineCountRate))
+                this.findBaseline(this.datetimeMeasured);
+            end 
+            this.tableTwilite_.coincidences = this.tableTwilite_.coincidences - mean(this.baselineCountRate);
+        end
     end
 
 	%  Created with Newcl by John J. Lee after newfcn by Frank Gonzalez-Morphy
