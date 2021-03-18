@@ -1,4 +1,4 @@
-classdef Catheter_DT20190930 
+classdef Catheter_DT20190930 < handle
 	%% CATHETER_DT20190930  
 
 	%  $Revision$
@@ -14,18 +14,32 @@ classdef Catheter_DT20190930
     properties
         hct
         Measurement
+        radialArteryKit
         sgolayWindow1 = 12
         sgolayWindow2 = 4
+        tracer
     end
     
     properties (Dependent)
+        halflife
  		timeInterpolants        
     end
 
 	methods 
         
-        %% GET
+        %% GET        
         
+        function g = get.halflife(this)
+            switch upper(this.tracer)
+                case 'FDG'
+                    g = 1.82951 * 3600; % +/- 0.00034 h * sec/h
+                case {'HO' 'CO' 'OC' 'OO'}                    
+                    g = 122.2416;
+                otherwise
+                    error('mlswisstrace:ValueError', ...
+                        'Catheter_DT20190930.halflife.tracer = %s', tracer)
+            end            
+        end
         function g = get.timeInterpolants(this)
             if isempty(this.timeInterpolants_)
                 g = 0:this.dt:length(this.Measurement)-1;
@@ -33,7 +47,7 @@ classdef Catheter_DT20190930
             end
             g = this.timeInterpolants_;
         end
-        function this = set.timeInterpolants(this, s)
+        function set.timeInterpolants(this, s)
             this.timeInterpolants_ = s;
         end
         
@@ -61,24 +75,46 @@ classdef Catheter_DT20190930
             [q,r] = deconv(M, k);
             q = q(1:length(this.timeInterpolants));
             q(q < 0) = 0;
+            q = q .* 2.^(this.t0/this.halflife); % catheter deconv doesn't know how to shift world-lines
         end
-        function q = deconvBayes(this)
-            k = this.kernel;
-            M = this.Measurement;
-            a = mlswisstrace.RadialArteryLee2021( ...
-                'kernel', k, ...
-                'model_kind', '3bolus', ...
-                'Measurement', M);
-            a = a.solve(@mlswisstrace.RadialArteryLee2021Model.loss_function);
-            q = a.solution();
+        function q = deconvBayes(this, varargin)
+            k = this.kernel(varargin{:}); % length(k) >= length(this.Measurement)
+
+            if isempty(this.deconvCache_)
+                this.deconvCache_ = containers.Map('KeyType', 'double', 'ValueType', 'any');
+            end
+            if ~isKey(this.deconvCache_, length(k))
+                M = this.Measurement;
+                ral = mlswisstrace.RadialArteryLee2021( ...
+                    'tracer', this.tracer, ...
+                    'kernel', k, ...
+                    'model_kind', '3bolus', ...
+                    'Measurement', M);
+                ral = ral.solve();
+                this.deconvCache_(length(k)) = ral.deconvolved() .* 2.^(this.t0/this.halflife); % catheter deconv doesn't know how to shift world-lines
+                this.radialArteryKit = ral;
+            end
+            q = this.deconvCache_(length(k));
         end
-        function k = kernel(this)
+        function k = kernel(this, varargin)
             %% including regressions on catheter data of 2019 Sep 30
+            %  @param Nt is the number of uniform time samples.
+            
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            ip.PartialMatching= false;
+            addParameter(ip, 'Nt', [], @isnumeric)
+            parse(ip, varargin{:})
+            ipr = ip.Results;
+            if isempty(ipr.Nt)                
+                t = this.timeInterpolants;
+            else
+                t = 0:ipr.Nt-1;
+            end
             
             a =  0.0072507*this.hct - 0.13201;
             b =  0.0059645*this.hct + 0.69005;
             p = -0.0014628*this.hct + 0.58306;
-            t =  this.timeInterpolants;
             w =  0.00040413*this.hct + 1.2229;
             
             if (t(1) >= this.t0) % saves extra flops from slide()
@@ -126,6 +162,7 @@ classdef Catheter_DT20190930
             ip.KeepUnmatched = true;
             addParameter(ip, 'Measurement', [], @isnumeric)
             addParameter(ip, 'hct', 45, @isnumeric)
+            addParameter(ip, 'tracer', [], @(x) ~isempty(x) && ischar(x))
             parse(ip, varargin{:})
             ipr = ip.Results;
             
@@ -138,12 +175,14 @@ classdef Catheter_DT20190930
             end
             this.hct = ipr.hct;
             assert(this.hct > 1)
+            this.tracer = ipr.tracer;
  		end
     end     
     
     %% PROTECTED
     
-    properties (Access = protected)
+    properties (Access = protected) 
+        deconvCache_
         timeInterpolants_
     end
     

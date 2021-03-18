@@ -9,8 +9,7 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
 	properties
         ks0
         ks_lower
-        ks_upper   
-        model_kind
+        ks_upper
         quiet = false
         visualize = false
         visualize_anneal = false
@@ -21,6 +20,7 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
         kernel  
         ks
         ks_names
+        model_kind
         tracer
     end
 
@@ -36,6 +36,9 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
         end
         function g = get.ks_names(~)
             g = mlswisstrace.RadialArteryLee2021Model.knames;
+        end
+        function g = get.model_kind(this)
+            g = this.model.model_kind;
         end
         function g = get.tracer(this)
             g = this.model.tracer;
@@ -149,7 +152,7 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
             if ~isempty(ipr.ylim); ylim(ipr.ylim); end
             xlabel('times / s')
             ylabel('activity / (Bq/mL)')
-            annotation('textbox', [.25 .5 .5 .2], 'String', sprintfModel(this), 'FitBoxToText', 'on', 'FontSize', 10, 'LineStyle', 'none')
+            annotation('textbox', [.25 .5 .3 .3], 'String', sprintfModel(this), 'FitBoxToText', 'on', 'FontSize', 8, 'LineStyle', 'none')
             dbs = dbstack;
             title(dbs(1).name)
         end
@@ -218,20 +221,8 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
             end
         end
 		  
- 		function this = RadialArteryLee2021SimulAnneal(varargin)
-            %% @param tracer is in {'CO' 'OC' 'OO' 'HO' 'FDG'}.
-            %  @param model_kind is char.
-            
-            this = this@mloptimization.SimulatedAnnealing(varargin{:});
-            
-            ip = inputParser;
-            ip.KeepUnmatched = true;
-            addParameter(ip, 'model_kind', [], @ischar)
-            parse(ip, varargin{:})
-            ipr = ip.Results;
-            assert(~isempty(ipr.model_kind))
-            this.model_kind = ipr.model_kind;
- 			
+ 		function this = RadialArteryLee2021SimulAnneal(varargin)            
+            this = this@mloptimization.SimulatedAnnealing(varargin{:}); 			
             [this.ks_lower,this.ks_upper,this.ks0] = remapper(this);
  		end
  	end 

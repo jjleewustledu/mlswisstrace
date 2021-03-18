@@ -55,6 +55,9 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
             obj = obj.solve();
             plot(obj, 'xlim', [-10 300])
             plot_dc(obj, 'xlim', [-10 300])
+            
+            figure
+            plot(obj.deconvolved)
         end
         function test_solution_1bolus(this)	
  			import mlswisstrace.*;

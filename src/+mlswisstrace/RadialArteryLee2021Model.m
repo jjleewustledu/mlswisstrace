@@ -13,6 +13,7 @@ classdef RadialArteryLee2021Model
 	properties 	
         kernel
  		map
+        model_kind
         times_sampled
         tracer
     end
@@ -220,12 +221,14 @@ classdef RadialArteryLee2021Model
             ip.PartialMatching = false;
             ip.KeepUnmatched = true;
             addParameter(ip, 'tracer', [], @ischar)
+            addParameter(ip, 'model_kind', [], @ischar)
             addParameter(ip, 'map', preferredMap(), @(x) isa(x, 'containers.Map'))
             addParameter(ip, 'kernel', [], @isnumeric)
             addParameter(ip, 'times_sampled', [], @isnumeric)
             parse(ip, varargin{:})
             ipr = ip.Results;
             this.tracer = upper(ipr.tracer);
+            this.model_kind = ipr.model_kind;
             this.map = ipr.map;
             this = this.adjustMapForTracer();
             this.kernel = ipr.kernel;

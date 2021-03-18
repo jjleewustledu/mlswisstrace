@@ -11,9 +11,11 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         baselineActivityDensity
         baselineCountRate
  		calibrationAvailable
+        catheterKit
         deconvCatheter
         Dt
         hct
+        radialArteryKit
         timeCliff
  	end
     
@@ -66,6 +68,9 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         function g = get.calibrationAvailable(this)
             g = this.calibration_.calibrationAvailable;
         end
+        function g = get.catheterKit(this)
+            g = this.catheter_;
+        end
         function g = get.deconvCatheter(this)
             g = this.deconvCatheter_;
         end
@@ -82,6 +87,9 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         function g = get.hct(this)
             g = this.catheter_.hct;
         end
+        function g = get.radialArteryKit(this)
+            g = this.catheter_.radialArteryKit;
+        end
         function g = get.timeCliff(this)
             g = this.timeCliff_;
         end
@@ -96,22 +104,22 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
             %% is calibrated to ref-source and catheter-adjusted and shifted in worldline; Bq
             %  @param decayCorrected, default := false.
  			%  @param datetimeForDecayCorrection updates internal.
+            %  @param Nt is number of time samples (1 sec each).
             
             if ~this.deconvCatheter 
-                a = this.data_.activity(varargin{:});
-                a = this.invEfficiency_*a;
+                a_ = this.data_.activity(varargin{:});
+                a = this.invEfficiency_*a_;
                 return
             end
-            
             this.catheter_.Measurement = this.data_.activity(varargin{:});
-            a = this.catheter_.deconv();
-            a = a .* 2.^(this.catheter_.t0/this.halflife); % catheter deconv doesn't know how to shift world-lines
-            a = this.invEfficiency_*a;
+            a_ = this.catheter_.deconvBayes(varargin{:});
+            a = this.invEfficiency_*a_;
         end
         function a = activityDensity(this, varargin)
             %% is calibrated to ref-source and catheter-adjusted; Bq/mL
             %  @param decayCorrected, default := false.
  			%  @param datetimeForDecayCorrection updates internal.
+            %  @param Nt is number of time samples (1 sec each).
             
             a = this.activity(varargin{:})/this.data_.visibleVolume;
         end
@@ -119,11 +127,9 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
             %% has no calibrations nor catheter adjustments; in cps
             %  @param decayCorrected, default := false.
  			%  @param datetimeForDecayCorrection updates internal.
+            %  @param Nt is number of time samples (1 sec each).
             
             c = this.data_.countRate(varargin{:});
-        end
-        function this = imputeSteadyStateActivityDensity(this, varargin)
-            this.data_ = this.data_.imputeSteadyStateActivityDensity(varargin{:});
         end
         function h = plotall(this, varargin)
             %% PLOTALL
@@ -162,10 +168,21 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
             parse(ip, varargin{:})
             
             this.catheter_ = mlswisstrace.Catheter_DT20190930( ...
-                'Measurement', this.countRate, 'hct', ip.Results.hct);
+                'Measurement', this.countRate, ...
+                'hct', ip.Results.hct, ...
+                'tracer', this.tracer);
             this.invEfficiency_ = mean(this.calibration_.invEfficiency) * RefSourceCalibration.invEfficiencyf();
             this.deconvCatheter_ = ip.Results.deconvCatheter;
+            this.timeCliff_ = Inf;
  		end
+    end
+    
+    %% DEPRECATED
+    
+    methods (Hidden)
+        function this = imputeSteadyStateActivityDensity(this, varargin)
+            this.data_ = this.data_.imputeSteadyStateActivityDensity(varargin{:});
+        end        
     end
 
 	%  Created with Newcl by John J. Lee after newfcn by Frank Gonzalez-Morphy

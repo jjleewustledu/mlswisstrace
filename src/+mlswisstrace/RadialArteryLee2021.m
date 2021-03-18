@@ -14,7 +14,12 @@ classdef RadialArteryLee2021 < handle & matlab.mixin.Heterogeneous & matlab.mixi
     end
 
 	methods
-        
+        function rho = deconvolved(this)            
+            M0 = max(this.measurement);
+            ks = this.strategy_.ks;
+            mdl = this.model;
+            rho = M0*this.model.deconvolved(ks, mdl.kernel, mdl.tracer, mdl.model_kind);
+        end
         function Q = loss(this)
             Q = this.strategy_.loss();
         end
@@ -23,6 +28,12 @@ classdef RadialArteryLee2021 < handle & matlab.mixin.Heterogeneous & matlab.mixi
         end
         function h = plot_dc(this, varargin)
             h = this.strategy_.plot_dc(varargin{:});
+        end
+        function rho = sampled(this)           
+            M0 = max(this.measurement);
+            ks = this.strategy_.ks;
+            mdl = this.model;
+            rho = M0*this.model.sampled(ks, mdl.kernel, mdl.tracer, mdl.model_kind);
         end
         function this = solve(this, varargin)
             %% @param required loss_function is function_handle.
@@ -37,6 +48,7 @@ classdef RadialArteryLee2021 < handle & matlab.mixin.Heterogeneous & matlab.mixi
 
             %  for mlswisstrace.RadialArteryLee2021Model: 
             %  @param tracer \in {'CO' 'OC' 'OO' 'HO' 'FDG'}  *****
+            %  @param model_kind is char.  *****
             %  @param map is a containers.Map.  Default := RadialArteryLee2021Model.preferredMap.
  			%  @param kernel is numeric.  *****
             %
