@@ -64,7 +64,6 @@ classdef (Abstract) AbstractTwilite < mlpet.AbstractAifData
         end
         function g    = get.fqCrvCal(this)
             error('mlswisstrace:notImplemented', 'AbstractTwilite.get.fqCrvCal');
-            g = fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), '');
         end
         function g    = get.invEfficiency(this)
             g = this.counts2specificActivity;

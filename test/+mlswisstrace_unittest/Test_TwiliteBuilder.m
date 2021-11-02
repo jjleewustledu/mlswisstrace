@@ -11,7 +11,6 @@ classdef Test_TwiliteBuilder < matlab.unittest.TestCase
  	%% It was developed on Matlab 9.3.0.713579 (R2017b) for MACI64.  Copyright 2018 John Joowon Lee.
  	
 	properties
-        ccirRadMeasurementsDir = fullfile(getenv('HOME'), 'Documents', 'private', '')
         doseAdminDatetimeHO = datetime(2016,9,23,11,32-2,25-24, 'TimeZone', mlpipeline.ResourcesRegistry.instance().preferredTimeZone)
  		registry
         sessd
@@ -78,7 +77,6 @@ classdef Test_TwiliteBuilder < matlab.unittest.TestCase
  	methods (TestClassSetup)
 		function setupTwiliteBuilder(this)
  			import mlswisstrace.*;
-            setenv('CCIR_RAD_MEASUREMENTS_DIR', this.ccirRadMeasurementsDir);
             this.sessp = fullfile(getenv('PPG'), 'jjlee2', this.sessf, '');
             this.sessd = mlraichle.SessionData( ...
                 'studyData', mlraichle.StudyData, ...

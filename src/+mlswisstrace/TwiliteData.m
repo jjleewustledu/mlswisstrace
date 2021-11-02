@@ -30,11 +30,11 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
                     varargin{:});
                 if lstrfind(lower(sesd.tracer), 'fdg')
                     fn = sprintf('*fdg_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
-                    fqfnCrvs = globT(fullfile(mlnipet.Resources.instance().CCIR_RAD_MEASUREMENTS_DIR, 'Twilite', 'CRV', fn));
+                    fqfnCrvs = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite', 'CRV', fn));
                     this.read(fqfnCrvs{1});
                 else
                     fn = sprintf('*o15_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
-                    fqfnCrvs = globT(fullfile(mlnipet.Resources.instance().CCIR_RAD_MEASUREMENTS_DIR, 'Twilite', 'CRV', fn));
+                    fqfnCrvs = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite', 'CRV', fn));
                     this.read(fqfnCrvs{1});
                     this.findBaseline(this.datetimeMeasured);
                     this.datetimeForDecayCorrection = sesd.datetime;

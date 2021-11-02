@@ -18,9 +18,9 @@ classdef Test_TwiliteData < matlab.unittest.TestCase
         doseAdminDatetimeOO  = datetime(2019,5,23,12,40,17, 'TimeZone', mlpipeline.ResourcesRegistry.instance().preferredTimeZone);
         doseAdminDatetimeHO  = datetime(2019,5,23,13,0,52,  'TimeZone', mlpipeline.ResourcesRegistry.instance().preferredTimeZone);
         
-        fqfn_o15_crv = fullfile(getenv('HOME'), 'Documents/private/Twilite/CRV/o15_dt20190523.crv')
-        fqfn_fdg_crv = fullfile(getenv('HOME'), 'Documents/private/Twilite/CRV/fdg_dt20190523.crv')
-        fqfnRadm = fullfile(getenv('HOME'), 'Documents/private/CCIRRadMeasurements 2019may23.xlsx')
+        fqfn_o15_crv = fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite/CRV/o15_dt20190523.crv')
+        fqfn_fdg_crv = fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite/CRV/fdg_dt20190523.crv')
+        fqfnRadm = fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'CCIRRadMeasurements 2019may23.xlsx')
         radm
  		registry
         sesd_fdg
