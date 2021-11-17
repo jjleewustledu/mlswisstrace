@@ -308,7 +308,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
         visibleVolume_
     end
     
-    %% DEPRECAED
+    %% DEPRECATED
     
     methods (Hidden)
         function this = imputeSteadyStateActivityDensity(this, varargin)
