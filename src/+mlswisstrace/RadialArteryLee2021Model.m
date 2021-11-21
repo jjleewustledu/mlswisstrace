@@ -68,10 +68,10 @@ classdef RadialArteryLee2021Model
             m('k3') = struct('min', 0.1,   'max',  10,    'init', 1.8,   'sigma', 0.05); % p
             m('k4') = struct('min', 0.001, 'max',   0.1,  'init', 0.008, 'sigma', 0.05); % gamma
             m('k5') = struct('min', 0,     'max', 100,    'init', 0,     'sigma', 1   ); % t0
-            m('k6') = struct('min', 0.01,  'max',   0.2,  'init', 0.1,   'sigma', 0.05); % recirc fraction in (0, 1)
-            m('k7') = struct('min', 0.01,  'max',   0.2,  'init', 0.1,   'sigma', 0.05); % bolus fraction < 0.5, for 2nd bolus
+            m('k6') = struct('min', 0.01,  'max',   0.2,  'init', 0.1,   'sigma', 0.05); % recirc fraction in (0, 1), for rising baseline
+            m('k7') = struct('min', 0.001, 'max',   0.1,  'init', 0.1,   'sigma', 0.05); % bolus fraction < 0.5, for 2nd bolus
             m('k8') = struct('min', 0.02,  'max',   0.2,  'init', 0.15,  'sigma', 0.05); % bolus delay fraction \in [0, 1]
-            m('k9') = struct('min', 0,     'max',   0.25, 'init', 0.1,   'sigma', 0.05); % baseline fraction \approx 0.05
+            m('k9') = struct('min', 0,     'max',   0.25, 'init', 0.1,   'sigma', 0.05); % baseline amplitude fraction \approx 0.05
         end    
         function qs = sampled(ks, kernel, tracer, model_kind)
             %% @return the Bayesian estimate of the measured AIF, including baseline, scaled to unity.
