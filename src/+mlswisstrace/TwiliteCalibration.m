@@ -8,6 +8,7 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
  	%% It was developed on Matlab 9.2.0.538062 (R2017a) for MACI64.  Copyright 2017 John Joowon Lee.
  	    
     properties (Dependent)
+        Bq_over_cps
         calibrationAvailable
         invEfficiency
         twiliteData
@@ -15,7 +16,7 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
     
     methods (Static)
         function buildCalibration()
-        end   
+        end
         function this = createFromSession(sesd, varargin)
             %% CREATEBYSESSION
             %  @param required sessionData is an mlpipeline.ISessionData.
@@ -46,6 +47,9 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
         
         %% GET
         
+        function g = get.Bq_over_cps(this)
+            g = asrow(this.Bq_over_cps_);
+        end
         function g = get.calibrationAvailable(this)
             g = ~isempty(this.twiliteData_) && ~isnan(this.invEfficiency);
         end
@@ -76,6 +80,20 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
             ad = td.activityDensity('index0', td.index0, 'indexF', td.indexF);
             ad = asrow(ad);
         end
+        function [cr,td] = countRateForCal(this)
+            %% finds the temporally most proximate Twilite cal data and estimates count rate in counts/s.
+            
+            td = copy(this.twiliteData_);
+            [~,thresholdedIndex] = max(td.countRate() > td.baselineSup);
+            dtM1 = this.radMeasurements_.mMR.scanStartTime_Hh_mm_ss(1);
+            dtM2 = td.datetimeMeasured + seconds(thresholdedIndex - 1);
+            td.findBaseline(dtM2);
+            td.findBolus(dtM1);
+            td.timeForDecayCorrection = td.time0;
+            td.decayCorrect;
+            cr = td.countRate('index0', td.index0, 'indexF', td.indexF);
+            cr = asrow(cr);
+        end
         function [h1,h2] = plot(this)
             assert(isa(this.twiliteData_, 'mlswisstrace.TwiliteData'), ...
                 'mlswisstrace:RuntimeError', 'TwiliteCalibration.plot() found faulty this.twiliteData_')
@@ -96,6 +114,7 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
     %% PROTECTED
     
     properties (Access = protected)
+        Bq_over_cps_
         invEfficiency_
         twiliteData_
     end
@@ -131,6 +150,8 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
                 
                 this.twiliteData_ = mlswisstrace.TwiliteData.createFromSession(sesd, 'radMeasurements', rm);
                 this.invEfficiency_ = mean(activityDensityCapr)/mean(this.activityDensityForCal());
+                vvol = this.twiliteData_.visibleVolume;
+                this.Bq_over_cps_ = mean(activityDensityCapr)*vvol/mean(this.countRateForCal());
             catch ME
                 
                 % calibration data was inadequate, but proximal session may be useable
