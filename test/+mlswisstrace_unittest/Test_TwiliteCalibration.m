@@ -93,7 +93,7 @@ classdef Test_TwiliteCalibration < matlab.unittest.TestCase
                             % subject
                             continue
                         end
-                        str = fullfile(mybasename(proj{1}), mybasename(ses{1}), mybasename(fdgs{end}));
+                        str = fullfile(mybasename(proj{1}), mybasename(ses{1}), basename(fdgs{end}));
                         sesd = mlraichle.SessionData.create(str);
                         if datetime(sesd) > mlraichle.StudyRegistry.instance().earliestCalibrationDatetime
                             disp(repmat('=', [1 length(str)]))
