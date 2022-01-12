@@ -218,7 +218,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             parse(ip, varargin{:}); 
             ipr = ip.Results;
                       
-            assert(lexist(ipr.fqfnCrv), ...
+            assert(isfile(ipr.fqfnCrv), ...
                 'mlswisstrace.TwiliteData.read could not open %s', ipr.fqfnCrv);
             assert(~isfolder(ipr.fqfnCrv), ...
                 'mlswisstrace.TwiliteData.read received a path without expected file: %s', ipr.fqfnCrv);
@@ -259,7 +259,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
                 this.datetimeMeasured = this.datetimeMeasured + seconds(Dt);
             end
         end
-		  
+		
  		function this = TwiliteData(varargin)
  			%% TWILITEDATA
             %  @param isotope in mlpet.Radionuclides.SUPPORTED_ISOTOPES.  MANDATORY.

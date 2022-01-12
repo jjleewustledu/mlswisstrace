@@ -171,14 +171,14 @@ classdef (Abstract) AbstractTwilite < mlpet.AbstractAifData
         end
         function this = readtable(this, varargin)
             ip = inputParser;
-            addOptional(ip, 'fqfnCrv', this.fqfilename, @(x) lexist(x, 'file'));
+            addOptional(ip, 'fqfnCrv', this.fqfilename, @isfile);
             parse(ip, varargin{:}); 
             ipr = ip.Results;
             
             warning('off', 'MATLAB:table:ModifiedVarnames');   
             warning('off', 'MATLAB:table:ModifiedAndSavedVarnames');  
             
-            assert(lexist(ipr.fqfnCrv), ...
+            assert(isfile(ipr.fqfnCrv), ...
                 'mlswisstraceAbstractTwilite.readtable could not open %s', ipr.fqfnCrv);
             assert(~isfolder(ipr.fqfnCrv), ...
                 'mlswisstraceAbstractTwilite.readtable received a path without expected file: %s', ipr.fqfnCrv);
