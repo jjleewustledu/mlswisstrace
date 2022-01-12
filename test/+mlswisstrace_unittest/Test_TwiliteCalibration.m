@@ -117,6 +117,57 @@ classdef Test_TwiliteCalibration < matlab.unittest.TestCase
                 end
             end
         end
+        function test_census_20211228(this)
+            singularity = getenv('SINGULARITY_HOME');
+            dt = NaT;
+            Bq_over_cps = nan;
+            i = 1;
+            for proj = globFoldersT(fullfile(singularity, 'CCIR_*'))
+                for ses = globFoldersT(fullfile(proj{1}, 'ses-E*'))
+                    try
+                        fdgs = globFoldersT(fullfile(ses{1}, 'FDG_DT*-Converted-AC'));
+                        if isempty(fdgs)
+                            % e.g., CT session or aborted session
+                            continue
+                        end
+                        if isempty(globFoldersT(fullfile(ses{1}, 'OC_DT*-Converted-AC')))
+                            % ignore sessions containing only Twilite data which are linked to session data from
+                            % subject
+                            continue
+                        end
+                        str = fullfile(mybasename(proj{1}), mybasename(ses{1}), basename(fdgs{end}));
+                        sesd = mlraichle.SessionData.create(str);
+                        if datetime(sesd) > mlraichle.StudyRegistry.instance().earliestCalibrationDatetime
+                            disp(repmat('=', [1 length(str)]))
+                            disp(str)
+                            disp(repmat('=', [1 length(str)]))
+                            tcal = mlswisstrace.TwiliteCalibration.createFromSession(sesd);
+                            sesd1 = tcal.sessionData;
+                            ss = split(sesd.scanPath, 'Singularity/');
+                            ss1 = split(sesd1.scanPath, 'Singularity/');
+                            fprintf('\n')
+                            fprintf('test_census:\n')
+                            fprintf('    requested: %s\n', ss{2})
+                            fprintf('    found:     %s\n', ss1{2})
+                            fprintf('    Bq/cps = %g\n', tcal.Bq_over_cps)
+                            fprintf('\n')                                
+                            tcal.plot()
+                            dt(i) = this.regex_datetime(ss1{2});
+                            Bq_over_cps(i) = tcal.Bq_over_cps;
+
+                            i = i + 1;
+
+                        end
+                    catch ME
+                        handwarning(ME)
+                    end
+                end
+            end
+            table_twilite_calibration = table(ascol(dt), ascol(Bq_over_cps), 'VariableNames', {'datetime' 'Bq_over_cps'});
+            save(fullfile('test_census_20211228.mat'), 'table_twilite_calibration')
+            mkdir('QC_plots')
+            saveFigures('QC_plots')
+        end
         function test_arrayOutOfBounds(this)
             sesd = mlraichle.SessionData.create('CCIR_00559/ses-E216027/FDG_DT20170613135932.000000-Converted-AC');
             disp(sesd)
@@ -125,7 +176,7 @@ classdef Test_TwiliteCalibration < matlab.unittest.TestCase
             tcal.plot()
             
         end
-        function test_findProximal(this)
+        function test_findProximal(~)
             sesd = mlraichle.SessionData.create('CCIR_00754/ses-E186470/FDG_DT20160408121938.000000-Converted-AC');
             disp(sesd)
             tcal = mlswisstrace.TwiliteCalibration.createFromSession(sesd);
@@ -160,8 +211,13 @@ classdef Test_TwiliteCalibration < matlab.unittest.TestCase
  	end
 
 	methods (Access = private)
-		function cleanTestMethod(this)
- 		end
+		function cleanTestMethod(~)
+        end
+        function dt = regex_datetime(~, str)
+            [~,str] = myfileparts(str);
+            re = regexp(str, '\w+_DT(?<dt>\d{14})\w*', 'names');
+            dt = datetime(re.dt, 'InputFormat', 'yyyyMMddHHmmss');
+        end
 	end
 
 	%  Created with Newcl by John J. Lee after newfcn by Frank Gonzalez-Morphy
