@@ -78,7 +78,7 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
                 hold('on')
                 for icomb = 1:4
                     ks(ik) = ks_combinations(ik, icomb);
-                    qs = RadialArteryLee2021Model.solution_1bolus(ks, 120, 'HO');
+                    qs = RadialArteryLee2021Model.solution_1bolus(ks, 120, 'HO', ks(3));
                     plot(0:119, qs);
                 end
                 C = cellfun(@(x) num2str(x), num2cell(ks_combinations(ik,:)), 'UniformOutput', false);
@@ -106,7 +106,7 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
                 hold('on')
                 for icomb = 1:4
                     ks(ik) = ks_combinations(ik, icomb);
-                    qs = RadialArteryLee2021Model.solution_2bolus(ks, 120, 'HO');
+                    qs = RadialArteryLee2021Model.solution_2bolus(ks, 120, 'HO', ks(3));
                     plot(0:119, qs);
                 end
                 C = cellfun(@(x) num2str(x), num2cell(ks_combinations(ik,:)), 'UniformOutput', false);
