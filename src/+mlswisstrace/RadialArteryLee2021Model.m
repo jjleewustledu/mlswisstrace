@@ -7,7 +7,7 @@ classdef RadialArteryLee2021Model
  	%% It was developed on Matlab 9.9.0.1592791 (R2020b) Update 5 for MACI64.  Copyright 2021 John Joowon Lee.
  	
     properties (Constant)
-        knames = {'\alpha' '\beta' 'p' '\gamma' 't_0' 'recirc\_fraction' 'bolus\_fraction' 'bolus\_delay' 'baseline\_fraction' 'p_2'}
+        knames = {'\alpha' '\beta' 'p' '\gamma' 't_0' 'steadystate\_fraction' 'recirc\_fraction' 'recirc\_delay' 'baseline\_fraction' 'p_2'}
     end
     
 	properties 	
@@ -87,17 +87,6 @@ classdef RadialArteryLee2021Model
             qs = qs/max(qs); % \in [0 1] 
             qs = scale_frac*qs + baseline_frac; % \in [0 1]   
         end
-        function qs = sampled1(ks, kernel, tracer, model_kind)
-            %% @return the Bayesian estimate of the measured AIF, including baseline, scaled to unity.
-            
-            N = length(kernel);
-            baseline = ks(9);
-            
-            qs = mlswisstrace.RadialArteryLee2021Model.deconvolved(ks, kernel, tracer, model_kind);
-            qs = conv(qs, kernel);            
-            qs = qs(1:N);
-            qs = qs + baseline; % \in [0 1]   
-        end
         function qs = solution(ks, N, tracer, model_kind)
             %% @return the idealized true AIF without baseline, scaled to unity.
             
@@ -137,7 +126,7 @@ classdef RadialArteryLee2021Model
             qs = qs/max(qs); % \in [0 1] 
         end
         function qs = solution_2bolus(ks, N, tracer, p)
-            %% stretched gamma distribution + rising baseline
+            %% stretched gamma distribution + rising steadystate
 
             import mlswisstrace.RadialArteryLee2021Model.slide
             import mlswisstrace.RadialArteryLee2021Model.halflife
@@ -146,18 +135,18 @@ classdef RadialArteryLee2021Model
             a = ks(1);
             b = ks(2);
             g = ks(4);
-            recirc_frac = ks(6);
+            ss_frac = ks(6);
             
             if (t(1) >= t0) 
                 t_ = t - t0;
                 k_ = t_.^a .* exp(-(b*t_).^p);
-                r_ = 1 - exp(-g*t_);
-                qs = (1 - recirc_frac)*k_ + recirc_frac*r_;
+                ss_ = 1 - exp(-g*t_);
+                qs = (1 - ss_frac)*k_ + ss_frac*ss_;
             else % k is complex for t - t0 < 0
                 t_ = t - t(1);
                 k_ = t_.^a .* exp(-(b*t_).^p);
-                r_ = 1 - exp(-g*t_);
-                qs = (1 - recirc_frac)*k_ + recirc_frac*r_;
+                ss_ = 1 - exp(-g*t_);
+                qs = (1 - ss_frac)*k_ + ss_frac*ss_;
                 qs = slide(qs, t, t0 - t(1));
             end
             assert(all(imag(qs) == 0))
@@ -165,18 +154,19 @@ classdef RadialArteryLee2021Model
             qs = qs/max(qs); % \in [0 1] 
         end
         function qs = solution_3bolus(ks, N, tracer)
-            %% 2x stretched gamma distributions + rising baseline; forcing p2 > p, to be more dispersive
+            %% stretched gamma distribution + rising steadystate + auxiliary stretched gamma distribution; 
+            %  forcing p2 > p, to be more dispersive
 
             import mlswisstrace.RadialArteryLee2021Model.solution_1bolus
             import mlswisstrace.RadialArteryLee2021Model.solution_2bolus
             import mlswisstrace.RadialArteryLee2021Model.slide
-            bolus_frac = ks(7);
-            bolus_delay = ks(8)*N;
+            recirc_frac = ks(7);
+            recirc_delay = ks(8)*N;
             
             qs2 = solution_2bolus(ks, N, tracer, ks(3));
-            qs3 = solution_2bolus(ks, N, tracer, max(ks(3), ks(10)));
-            qs3 = slide(qs3, 0:N-1, bolus_delay);
-            qs = (1 - bolus_frac)*qs2 + bolus_frac*qs3;
+            qs1 = solution_1bolus(ks, N, tracer, max(ks(3), ks(10)));
+            qs1 = slide(qs1, 0:N-1, recirc_delay);
+            qs = (1 - recirc_frac)*qs2 + recirc_frac*qs1;
             qs = qs/max(qs); % \in [0 1] 
         end
         
