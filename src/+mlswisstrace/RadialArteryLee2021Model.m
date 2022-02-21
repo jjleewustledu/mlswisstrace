@@ -63,16 +63,16 @@ classdef RadialArteryLee2021Model
         end
         function m = preferredMap()
             m = containers.Map;
-            m('k1') = struct('min', 0.005, 'max',   5,    'init', 0.05,  'sigma', 0.05); % alpha
-            m('k2') = struct('min', 0.01,  'max',   1,    'init', 0.15,  'sigma', 0.05); % beta
-            m('k3') = struct('min', 0.1,   'max',  10,    'init', 1.8,   'sigma', 0.05); % p
-            m('k4') = struct('min', 0.001, 'max',   0.1,  'init', 0.008, 'sigma', 0.05); % gamma
-            m('k5') = struct('min', 0,     'max', 100,    'init', 0,     'sigma', 1   ); % t0
-            m('k6') = struct('min', 0.01,  'max',   0.2,  'init', 0.1,   'sigma', 0.05); % recirc fraction in (0, 1), for rising baseline
-            m('k7') = struct('min', 0.001, 'max',   0.1,  'init', 0.1,   'sigma', 0.05); % bolus fraction < 0.5, for 2nd bolus
-            m('k8') = struct('min', 0.02,  'max',   0.2,  'init', 0.15,  'sigma', 0.05); % bolus delay fraction \in [0, 1]
-            m('k9') = struct('min', 0,     'max',   0.25, 'init', 0.1,   'sigma', 0.05); % baseline amplitude fraction \approx 0.05
-            m('k10') = struct('min', 0.1,   'max',  10,    'init', 1.8,   'sigma', 0.05); % p2 for 2nd bolus
+            m('k1') = struct('min', 0.005,  'max',   5,    'init', 0.05,  'sigma', 0.05); % alpha
+            m('k2') = struct('min', 0.01,   'max',   0.1,  'init', 0.15,  'sigma', 0.05); % beta
+            m('k3') = struct('min', 1,      'max',   8,    'init', 1.8,   'sigma', 0.05); % p
+            m('k4') = struct('min', 0.001,  'max',   0.02, 'init', 0.01,  'sigma', 0.05); % gamma
+            m('k5') = struct('min', 0,      'max', 100,    'init', 0,     'sigma', 1   ); % t0
+            m('k6') = struct('min', 0,      'max',   0.1,  'init', 0.05,  'sigma', 0.05); % steady-state fraction in (0, 1), for rising baseline
+            m('k7') = struct('min', 0.001,  'max',   0.2,  'init', 0.1,   'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
+            m('k8') = struct('min', 0.02,   'max',   0.2,  'init', 0.15,  'sigma', 0.05); % recirc delay fraction \in [0, 1] x lenth(kernel)
+            m('k9') = struct('min', 0,      'max',   0.25, 'init', 0.1,   'sigma', 0.05); % baseline amplitude fraction \approx 0.05
+            m('k10') = struct('min', 0.125, 'max',   2,    'init', 1.8,   'sigma', 0.05); % p2 for 2nd bolus
         end    
         function qs = sampled(ks, kernel, tracer, model_kind)
             %% @return the Bayesian estimate of the measured AIF, including baseline, scaled to unity.
@@ -155,7 +155,7 @@ classdef RadialArteryLee2021Model
         end
         function qs = solution_3bolus(ks, N, tracer)
             %% stretched gamma distribution + rising steadystate + auxiliary stretched gamma distribution; 
-            %  forcing p2 > p, to be more dispersive
+            %  forcing p2 < p, to be more dispersive
 
             import mlswisstrace.RadialArteryLee2021Model.solution_1bolus
             import mlswisstrace.RadialArteryLee2021Model.solution_2bolus
@@ -164,7 +164,7 @@ classdef RadialArteryLee2021Model
             recirc_delay = ks(8)*N;
             
             qs2 = solution_2bolus(ks, N, tracer, ks(3));
-            qs1 = solution_1bolus(ks, N, tracer, max(ks(3), ks(10)));
+            qs1 = solution_1bolus(ks, N, tracer, ks(10) );
             qs1 = slide(qs1, 0:N-1, recirc_delay);
             qs = (1 - recirc_frac)*qs2 + recirc_frac*qs1;
             qs = qs/max(qs); % \in [0 1] 
@@ -247,10 +247,12 @@ classdef RadialArteryLee2021Model
                     this.map('k3') = struct('min', 0.1,   'max',   0.5,  'init',  0.25,  'sigma', 0.05); % p
                     this.map('k4') = struct('min', 1,     'max',  20,    'init',  1,     'sigma', 0.05); % gamma
             
-                    this.map('k6') = struct('min', 0.01,  'max',   0.5,  'init',  0.05,  'sigma', 0.05); % recirc fraction in (0, 1)
-                    this.map('k7') = struct('min', 0,     'max',   0.05, 'init',  0,     'sigma', 0.05); % bolus fraction < 0.5, for 2nd bolus
-                    this.map('k8') = struct('min', 0,     'max',   0.5,  'init',  0,     'sigma', 0.05); % bolus delay fraction \in [0, 1]
+                    this.map('k6') = struct('min', 0.01,  'max',   0.5,  'init',  0.05,  'sigma', 0.05); % steady-state fraction in (0, 1)
+                    this.map('k7') = struct('min', 0,     'max',   0.05, 'init',  0,     'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
+                    this.map('k8') = struct('min', 0,     'max',   0.5,  'init',  0,     'sigma', 0.05); % recirc delay fraction \in [0, 1]
                 case 'OO'
+                    % allow double inhalation
+                    this.map('k7') = struct('min', 0,     'max',   0.8,  'init',  0,     'sigma', 0.05); % recirc fraction for 2nd bolus
                 otherwise
                     % noninformative
             end
