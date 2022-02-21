@@ -107,8 +107,7 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
             xlabel('times / s')
             ylabel('activity / (Bq/mL)')
             annotation('textbox', [.25 .5 .5 .2], 'String', sprintfModel(this), 'FitBoxToText', 'on', 'FontSize', 10, 'LineStyle', 'none')
-            dbs = dbstack;
-            title([dbs(1).name ' DECAY-CORRECTED for ' this.tracer], 'Interpreter', 'none')
+            title([clientname(false, 2) ' DECAY-CORRECTED for ' this.tracer], 'Interpreter', 'none')
         end
         function h = plot(this, varargin)
             ip = inputParser;
@@ -153,8 +152,7 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
             xlabel('times / s')
             ylabel('activity / (Bq/mL)')
             annotation('textbox', [.25 .5 .3 .3], 'String', sprintfModel(this), 'FitBoxToText', 'on', 'FontSize', 8, 'LineStyle', 'none')
-            dbs = dbstack;
-            title(dbs(1).name)
+            title(clientname(false, 2))
         end
         function save(this)
             save([this.fileprefix '.mat'], this);
