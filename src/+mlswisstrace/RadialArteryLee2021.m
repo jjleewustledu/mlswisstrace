@@ -1,4 +1,4 @@
-classdef RadialArteryLee2021 < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
+classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
 	%% RADIALARTERYLEE2021 provides a strategy design pattern for inferring cerebral AIFs
     %  from measurements sampling the radial artery and a model kernel for delay and dispersion
     %  from the cannulation of the radial artery.
@@ -13,8 +13,21 @@ classdef RadialArteryLee2021 < handle & matlab.mixin.Heterogeneous & matlab.mixi
         model       %
     end
 
+    properties (Dependent)
+        strategy
+    end
+
 	methods
-        function rho = deconvolved(this)            
+
+        %% GET
+
+        function g = get.strategy(this)
+            g = this.strategy_;
+        end
+
+        %%
+
+        function rho = deconvolved(this)
             M0 = max(this.measurement);
             ks = this.strategy_.ks;
             mdl = this.model;
