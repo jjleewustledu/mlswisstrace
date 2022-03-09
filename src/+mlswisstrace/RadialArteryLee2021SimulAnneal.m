@@ -72,14 +72,14 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
             decay_corrected = @mlswisstrace.RadialArteryLee2021Model.decay_corrected;
             deconvolved = @mlswisstrace.RadialArteryLee2021Model.deconvolved;
             sampled = @mlswisstrace.RadialArteryLee2021Model.sampled;
-            N = length(this.kernel);
             M = decay_corrected(this.Measurement, this.tracer);
+            N = length(M);
             M0 = max(this.Measurement);
             
             h = figure;
-            samp = M0*sampled(this.ks, this.kernel, this.tracer, this.model_kind);
+            samp = M0*sampled(this.ks, N, this.kernel, this.tracer, this.model_kind);
             samp = decay_corrected(samp, this.tracer);
-            deconvolved = M0*deconvolved(this.ks, this.kernel, this.tracer, this.model_kind);
+            deconvolved = M0*deconvolved(this.ks, N, this.kernel, this.tracer, this.model_kind);
             times = 0:N-1;
             
             if isempty(this.zoom)
@@ -94,13 +94,13 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
                 plot(times, M, 'o', ...
                     times, samp, ':', ...
                     times, deconvolved, '-', ...
-                    times, this.zoom*this.kernel, '--')
+                    times, this.zoom*this.kernel, '--', 'LineWidth', 2)
                 legend({'measured', 'estimated', 'deconvolved', leg_kern})
             else
                 plot(times, M, 'o', ...
                     times, samp, ':', ...
-                    times, deconvolved, '-')
-                legend({'measured', 'estimated', 'deconvolved', leg_kern})
+                    times, deconvolved, '-', 'LineWidth', 2)
+                legend({'measured', 'estimated', 'deconvolved', leg_kern}, 'FontSize', 10)
             end
             if ~isempty(ipr.xlim); xlim(ipr.xlim); end
             if ~isempty(ipr.ylim); ylim(ipr.ylim); end
@@ -118,13 +118,13 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
             parse(ip, varargin{:})
             ipr = ip.Results;
             this.zoom = ipr.zoom;
-            N = length(this.kernel);
             M = this.Measurement;
+            N = length(M);
             M0 = max(M);
                         
             h = figure;
-            samp = M0*this.model.sampled(this.ks, this.kernel, this.tracer, this.model_kind);
-            deconvolved = M0*this.model.deconvolved(this.ks, this.kernel, this.tracer, this.model_kind);
+            samp = M0*this.model.sampled(this.ks, N, this.kernel, this.tracer, this.model_kind);
+            deconvolved = M0*this.model.deconvolved(this.ks, N, this.kernel, this.tracer, this.model_kind);
             times = 0:N-1;
             
             if isempty(this.zoom)
@@ -139,19 +139,19 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
                 plot(times, M, 'o', ...
                     times, samp, ':', ...
                     times, deconvolved, '-', ...
-                    times, this.zoom*this.kernel, '--')
+                    times, this.zoom*this.kernel, '--', 'LineWidth', 2)
                 legend({'measured', 'estimated', 'deconvolved', leg_kern})
             else
                 plot(times, M, 'o', ...
                     times, samp, ':', ...
-                    times, deconvolved, '-')
-                legend({'measured', 'estimated', 'deconvolved', leg_kern})
+                    times, deconvolved, '-', 'LineWidth', 2)
+                legend({'measured', 'estimated', 'deconvolved', leg_kern}, 'FontSize', 10)
             end
             if ~isempty(ipr.xlim); xlim(ipr.xlim); end
             if ~isempty(ipr.ylim); ylim(ipr.ylim); end
             xlabel('times / s')
             ylabel('activity / (Bq/mL)')
-            annotation('textbox', [.25 .5 .3 .3], 'String', sprintfModel(this), 'FitBoxToText', 'on', 'FontSize', 8, 'LineStyle', 'none')
+            annotation('textbox', [.25 .5 .3 .3], 'String', sprintfModel(this), 'FitBoxToText', 'on', 'FontSize', 10, 'LineStyle', 'none')
             title(clientname(false, 2))
         end
         function save(this)

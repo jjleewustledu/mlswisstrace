@@ -15,11 +15,11 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
         N = 300
  		registry
  		testObj
-        tracer = 'OO'
+        tracer = 'HO'
  	end
 
 	methods (Test)
-		function test_solve(this) 	
+		function test_solve(this)
  			import mlswisstrace.*;		
  			obj = RadialArteryLee2021( ...
                 'tracer', this.tracer, ...
@@ -38,6 +38,23 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
                 'Measurement', this.Simulation('noise', 0.02));
             obj = obj.solve();
             plot(obj)
+        end
+        function test_solve_ecat(this)
+            pwd0 = pushd('/Volumes/PrecunealSSD/Singularity/cvl/np674/sub1/pet');
+            d = mlpet.UncorrectedDCV.load('p6819ho1.dcv');
+            wc = 0.01*d.wellCounts(26:end);
+            %Nk = length(wc);
+            %k = zeros(1,Nk);
+            %k(1) = 1;
+            k = 1;
+            obj = mlswisstrace.RadialArteryLee2021( ...
+                'tracer', 'HO', ...
+                'kernel', k, ...
+                'model_kind', '3bolus', ...
+                'Measurement', wc);
+            obj = obj.solve();
+            plot(obj)
+            popd(pwd0)
         end
         function test_Measurement(this)
             M = this.Measurement(this.tracer);
@@ -197,7 +214,7 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
                 hold('on')
                 for icomb = 1:4
                     ks(ik) = ks_combinations(ik, icomb);
-                    qs = RadialArteryLee2021Model.sampled(ks, krnl, 'HO', '3bolus');
+                    qs = RadialArteryLee2021Model.sampled(ks, 120, krnl, 'HO', '3bolus');
                     plot(0:119, qs);
                 end
                 C = cellfun(@(x) num2str(x), num2cell(ks_combinations(ik,:)), 'UniformOutput', false);
@@ -262,6 +279,7 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
             addParameter(ip, 'tracer', this.tracer, @ischar)
             addParameter(ip, 'noise', [], @isnumeric)
             addParameter(ip, 'N', this.N, @isnumeric)
+            addParameter(ip, 'kernel', [], @isnumeric)
             parse(ip, varargin{:})
             ipr = ip.Results;
             
@@ -269,20 +287,20 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
             krnl = this.kernel(ipr.N);
             switch upper(ipr.tracer)
                 case {'OC' 'CO'}
-                    ks = [0.01 20 0.25 3 0 0.1 0.05 0.25 0.1];
+                    ks = [0.01 20 0.25 0 0 0.1 0.05 20 0.1];
                     model_kind = '3bolus';
                 case 'OO'
-                    ks = [0.05 0.15 1.8 0.008 0 0.1 0.1 0.15 0.1];
+                    ks = [0.05 0.15 1 0 0 0.1 0.1 20 0.1];
                     model_kind = '3bolus';
                 case 'HO'                    
-                    ks = [0.05 0.15 1.8 0.008 0 0.1 0.1 0.15 0.1];
+                    ks = [0.05 0.15 1 0 0 0.1 0.1 20 0.1];
                     model_kind = '3bolus';
                 case 'FDG'
                 otherwise
                     error('mlswisstrace_unittest:ValueError', ...
                         'Test_RadialArteryLee2021.Simluation.tracer = %s', ipr.tracer)
             end
-            S = RadialArteryLee2021Model.sampled(ks, krnl, ipr.tracer, model_kind);
+            S = RadialArteryLee2021Model.sampled(ks, ipr.N, krnl, ipr.tracer, model_kind);
             if ~isempty(ipr.noise)
                 S = S + ipr.noise*randn(size(S));
             end

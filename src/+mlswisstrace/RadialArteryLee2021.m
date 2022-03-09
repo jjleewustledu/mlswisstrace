@@ -29,9 +29,10 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
 
         function rho = deconvolved(this)
             M0 = max(this.measurement);
+            N = length(this.measurement);
             ks = this.strategy_.ks;
             mdl = this.model;
-            rho = M0*this.model.deconvolved(ks, mdl.kernel, mdl.tracer, mdl.model_kind);
+            rho = M0*this.model.deconvolved(ks, N, mdl.kernel, mdl.tracer, mdl.model_kind);
         end
         function Q = loss(this)
             Q = this.strategy_.loss();
@@ -44,9 +45,10 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
         end
         function rho = sampled(this)           
             M0 = max(this.measurement);
+            N = length(this.measurement);
             ks = this.strategy_.ks;
             mdl = this.model;
-            rho = M0*this.model.sampled(ks, mdl.kernel, mdl.tracer, mdl.model_kind);
+            rho = M0*this.model.sampled(ks, N, mdl.kernel, mdl.tracer, mdl.model_kind);
         end
         function this = solve(this, varargin)
             %% @param required loss_function is function_handle.
@@ -61,9 +63,9 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
 
             %  for mlswisstrace.RadialArteryLee2021Model: 
             %  @param tracer \in {'CO' 'OC' 'OO' 'HO' 'FDG'}  *****
-            %  @param model_kind is char.  *****
+            %  @param model_kind is char, e.g. '1bolus', '2bolus', '3bolus'.  *****
             %  @param map is a containers.Map.  Default := RadialArteryLee2021Model.preferredMap.
- 			%  @param kernel is numeric.  *****
+ 			%  @param kernel is numeric, default := 1.
             %
             %  for mlswisstrace.RadialArteryLee2021SimulAnneal:
             %  @param context is mlswisstrace.RadialArteryLee2021.
