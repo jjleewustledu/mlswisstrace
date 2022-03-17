@@ -42,25 +42,25 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
         function test_solve_ecat(this)
             pwd0 = pushd('/Volumes/PrecunealSSD/Singularity/cvl/np674/sub1/pet');
             d = mlpet.UncorrectedDCV.load('p6819ho1.dcv');
-            wc = 0.01*d.wellCounts(26:end);
-            %Nk = length(wc);
-            %k = zeros(1,Nk);
-            %k(1) = 1;
+            wc = d.wellCounts;
             k = 1;
             obj = mlswisstrace.RadialArteryLee2021( ...
                 'tracer', 'HO', ...
                 'kernel', k, ...
-                'model_kind', '3bolus', ...
+                'model_kind', '2bolus', ...
+                'map', this.bloodSuckerMap(), ...
                 'Measurement', wc);
             obj = obj.solve();
             plot(obj)
+            disp(obj.strategy)
+            disp(obj.strategy.ks)
             popd(pwd0)
         end
         function test_Measurement(this)
             M = this.Measurement(this.tracer);
             plot(0:length(M)-1, M)
         end
-		function test_solve_Measurement(this) 	
+		function test_solve_Measurement(this)
  			import mlswisstrace.*;	            
             M = this.Measurement(this.tracer);
             N_ = length(M);
@@ -84,7 +84,7 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
             ks_combinations = [ 0.1 0.5 1 2 ; ...
                                 0.05 0.1 0.2 0.4; ...
                                 0.5 1 1.5 2; ...
-                                Inf Inf Inf Inf; ...
+                                0 0.1 0.2 0.4; ...
                                 0 10 20 40];
                             
             figure;
@@ -107,11 +107,11 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
  			import mlswisstrace.*;
             Nk = 6;
             ks_names = RadialArteryLee2021Model.knames(1:Nk);
-            ks_init = [0.5 0.1 1 0.1 0 0.25];
+            ks_init = [0.5 0.1 1 0 0 0.25];
             ks_combinations = [ 0.1 0.5 1 2 ; ...
                                 0.05 0.1 0.2 0.4; ...
                                 0.5 1 1.5 2; ...
-                                0.05 0.02 0.01 0.005; ...
+                                0 0.1 0.2 0.4; ...
                                 0 10 20 40; ...
                                 0.05 0.1 0.2 0.4];
                             
@@ -131,15 +131,43 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
                 hold('off')
             end
         end
+        function test_solution_2bolus_ecat(this)
+ 			import mlswisstrace.*;
+            Nk = 6;
+            ks_names = RadialArteryLee2021Model.knames(1:Nk);
+            ks_init = [2.5  0.05  1.25  0  0  0.95];
+            ks_combinations = [ 0.25    0.5    1     2      3; ...
+                                0.05    0.1    0.2   0.3    0.4; ...
+                                1       1.5    2     2.5    3; ...
+                                0       0      0     0      0; ...
+                                0       5     10    15     20; ...
+                                0.95    0.99   0.995 0.999 0.9999];
+                            
+            figure;
+            for ik = 1:Nk
+                subplot(Nk, 1, ik)
+                ylabel(['\delta ' ks_names{ik}])
+                ks = ks_init;
+                hold('on')
+                for icomb = 1:5
+                    ks(ik) = ks_combinations(ik, icomb);
+                    qs = RadialArteryLee2021Model.solution_2bolus(ks, 120, 'HO', ks(3));
+                    plot(0:119, qs, 'LineWidth', 2);
+                end
+                C = cellfun(@(x) num2str(x), num2cell(ks_combinations(ik,:)), 'UniformOutput', false);
+                legend(C)
+                hold('off')
+            end
+        end
         function test_solution_3bolus(this)	
  			import mlswisstrace.*;
             Nk = 8;
             ks_names = RadialArteryLee2021Model.knames(1:Nk);
-            ks_init = [0.5 0.2 1.5 0.01 0 0.25 0.1 0.1];
+            ks_init = [0.5 0.2 1 0 0 0.25 0.1 0.1];
             ks_combinations = [ 0.1 0.5 1 2 ; ...
                                 0.05 0.1 0.2 0.4; ...
                                 0.5 1 1.5 2; ...
-                                0.05 0.02 0.01 0.005; ...
+                                0 0.1 0.2 0.4; ...
                                 0 10 20 40; ...
                                 0.05 0.1 0.2 0.4; ...
                                 0.01 0.05 0.1 0.2; ...
@@ -242,6 +270,30 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
  	end
 
 	methods (Access = private)
+        function m = bloodSuckerMap(~)
+            m = containers.Map;
+            m('k1') = struct('min',  1,     'max',  4,    'init',  3,    'sigma', 0.05); % alpha
+            m('k2') = struct('min',  0.05,  'max',  0.5,  'init',  0.2,  'sigma', 0.05); % beta in 1/sec
+            m('k3') = struct('min',  1,     'max',   3,    'init',  1.5,  'sigma', 0.05); % p
+            m('k4') = struct('min',  0,     'max',   0,    'init',  0,    'sigma', 0.05); % dp2 for 2nd bolus
+            m('k5') = struct('min',  0,     'max', 100,    'init', 25,    'sigma', 0.05); % t0 in sec
+            m('k6') = struct('min',  0.95,  'max',   1,    'init',  0.995,'sigma', 0.05); % steady-state fraction in (0, 1), for rising baseline
+            m('k7') = struct('min',  0.02,  'max',   0.15, 'init',  0.05, 'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
+            m('k8') = struct('min', 15,     'max',  90,    'init', 30,    'sigma', 0.05); % recirc delay in sec
+            m('k9') = struct('min',  0,     'max',   0.1,  'init',  0.01, 'sigma', 0.05); % baseline amplitude fraction \approx 0.05
+        end  
+        function m = bloodSuckerMapLast(~)
+            m = containers.Map;
+            m('k1') = struct('min',  1,     'max',   5,    'init',  3,    'sigma', 0.05); % alpha
+            m('k2') = struct('min',  0.02,  'max',  0.5,  'init',  0.2,  'sigma', 0.05); % beta in 1/sec
+            m('k3') = struct('min',  0.5,   'max',   3,    'init',  1.5,  'sigma', 0.05); % p
+            m('k4') = struct('min',  0,     'max',   0,    'init',  0,    'sigma', 0.05); % dp2 for 2nd bolus
+            m('k5') = struct('min',  0,     'max', 100,    'init', 25,    'sigma', 0.05); % t0 in sec
+            m('k6') = struct('min',  0.5,   'max',   1,    'init',  0.8,  'sigma', 0.05); % steady-state fraction in (0, 1), for rising baseline
+            m('k7') = struct('min',  0.02,  'max',   0.15, 'init',  0.05, 'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
+            m('k8') = struct('min', 15,     'max',  90,    'init', 30,    'sigma', 0.05); % recirc delay in sec
+            m('k9') = struct('min',  0,     'max',   0.1,  'init',  0.01, 'sigma', 0.05); % baseline amplitude fraction \approx 0.05
+        end  
 		function cleanTestMethod(this)
         end
         function k = kernel(this, N)

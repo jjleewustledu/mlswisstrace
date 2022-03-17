@@ -74,7 +74,7 @@ classdef RadialArteryLee2021Model
             m('k5') = struct('min',  0,     'max', 100,    'init',  0,    'sigma', 0.05); % t0 in sec
             m('k6') = struct('min',  0,     'max',   0.3,  'init',  0.2,  'sigma', 0.05); % steady-state fraction in (0, 1), for rising baseline
             m('k7') = struct('min',  0.05,  'max',   0.15, 'init',  0.1,  'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
-            m('k8') = struct('min', 15,     'max',  60,    'init', 30,    'sigma', 0.05); % recirc delay in sec
+            m('k8') = struct('min', 15,     'max',  90,    'init', 30,    'sigma', 0.05); % recirc delay in sec
             m('k9') = struct('min',  0,     'max',   0.25, 'init',  0.1,  'sigma', 0.05); % baseline amplitude fraction \approx 0.05
         end    
         function qs = sampled(ks, N, kernel, tracer, model_kind)
@@ -234,6 +234,7 @@ classdef RadialArteryLee2021Model
             this.model_kind = ipr.model_kind;
             this.map = ipr.map;
             this = this.adjustMapForTracer();
+            this = this.adjustMapForModelKind();
             this.kernel = ipr.kernel;
             this.times_sampled = ipr.times_sampled; 			
  		end
@@ -241,7 +242,24 @@ classdef RadialArteryLee2021Model
     
     %% PROTECTED
     
-    methods (Access = protected)        
+    methods (Access = protected)     
+        function this = adjustMapForModelKind(this)
+            switch lower(this.model_kind)
+                case '1bolus'        
+                    this.map('k4') = struct('min',  0,     'max',   0,    'init',  0,    'sigma', 0.05); % dp2 for 2nd bolus
+
+                    this.map('k6') = struct('min',  0,     'max',   0,    'init',  0,    'sigma', 0.05); % steady-state fraction in (0, 1), for rising baseline
+                    this.map('k7') = struct('min',  0,     'max',   0,    'init',  0,    'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
+                    this.map('k8') = struct('min',  0,     'max',   0,    'init',  0,    'sigma', 0.05); % recirc delay in sec
+                case '2bolus'
+                    this.map('k4') = struct('min',  0,     'max',   0,    'init',  0,    'sigma', 0.05); % dp2 for 2nd bolus
+
+                    this.map('k7') = struct('min',  0,     'max',   0,    'init',  0,    'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
+                    this.map('k8') = struct('min',  0,     'max',   0,    'init',  0,    'sigma', 0.05); % recirc delay in sec
+                case '3bolus'
+                otherwise
+            end
+        end
         function this = adjustMapForTracer(this)
             switch upper(this.tracer)
                 case 'FDG'                    
@@ -249,7 +267,6 @@ classdef RadialArteryLee2021Model
                 case {'CO' 'OC'}  
                     this.map('k2') = struct('min',  1,    'max',  20,    'init',  1,    'sigma', 0.05); % beta
                     this.map('k3') = struct('min',  0.1,  'max',   0.5,  'init',  0.25, 'sigma', 0.05); % p
-
             
                     this.map('k6') = struct('min',  0.01, 'max',   0.5,  'init',  0.05, 'sigma', 0.05); % steady-state fraction in (0, 1)
                     
