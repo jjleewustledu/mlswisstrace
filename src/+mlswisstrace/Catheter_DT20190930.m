@@ -14,31 +14,34 @@ classdef Catheter_DT20190930 < handle
     properties
         hct
         Measurement
-        radialArteryKit
         sgolayWindow1 = 12
-        sgolayWindow2 = 4
+        sgolayWindow2 = 4        
         tracer
     end
     
     properties (Dependent)
         halflife
+        radialArteryKit
  		timeInterpolants        
     end
 
 	methods 
         
-        %% GET        
+        %% GET
         
         function g = get.halflife(this)
             switch upper(this.tracer)
-                case 'FDG'
+                case {'FDG' '18F'}
                     g = 1.82951 * 3600; % +/- 0.00034 h * sec/h
-                case {'HO' 'CO' 'OC' 'OO'}                    
+                case {'HO' 'CO' 'OC' 'OO' '15O'}
                     g = 122.2416;
                 otherwise
                     error('mlswisstrace:ValueError', ...
-                        'Catheter_DT20190930.halflife.tracer = %s', tracer)
+                        'Catheter_DT20190930.halflife.tracer = %s', this.tracer)
             end            
+        end
+        function g = get.radialArteryKit(this)
+            g = this.radialArteryLeeCache_;
         end
         function g = get.timeInterpolants(this)
             if isempty(this.timeInterpolants_)
@@ -53,6 +56,54 @@ classdef Catheter_DT20190930 < handle
         
         %%
         
+        function this = call(this, varargin)
+            %  Params:
+            %      crv (file)
+            %      crv_out (file = strcat(myfileprefix(crv), '_deconv.crv'))
+            %      dt0 (datetime):  start of input function.
+            %      dtf (datetime):  end of inputfunction.
+            %      inveff (scalar):  counts/s to Bq/mL.
+            %      units (text = 'Bq/mL'):  assumes counts/s in; returns 'Bq/mL' or 'uCi/mL'.
+            %      Measurement (numeric):  counts/s.
+            %      t0 (scalar {mustBeGreaterThan(t0,0)}):  transforms worldline into past.
+            %      hct (scalar):  as percentage.
+            %      tracer (text)
+
+            ip = inputParser;
+            addRequired(ip, 'crv', @isfile);
+            addParameter(ip, 'hct', 45, @isscalar);
+            addParameter(ip, 'tracer', '', @isttext);
+            parse(ip, varargin{:});
+            ipr = ip.Results;
+
+
+
+            
+            idx0 = 1030;
+            idx_toss = 77;
+
+            crv = mlswisstrace.CrvData(ipr.crv);
+            disp(crv)
+
+            M_ = crv.timetable().Coincidence(idx0:end-idx_toss)*inveff;
+            cath = mlswisstrace.Catheter_DT20190930( ...
+                'Measurement', M_, ...
+                't0', 14.9, ...
+                'hct', ipr.hct, ...
+                'tracer', '18F'); % t0 reflects rigid extension + Luer valve + cath in Twilite cradle
+            M = zeros(size(crv.timetable().Coincidence));
+            M(idx0:end-idx_toss) = cath.deconvBayes();
+            crv_deconv = crv;
+            crv_deconv.filename = strcat(myfileprefix(ipr.crv), '_deconv.crv');
+            crv_deconv.coincidence = M;
+            crv_deconv.writecrv();
+            disp(crv_deconv)
+
+
+
+
+
+        end
         function [q,r] = deconv(this, varargin)
             k = this.kernel;
             M = smoothdata(this.Measurement, 'sgolay', this.sgolayWindow1);
@@ -79,22 +130,22 @@ classdef Catheter_DT20190930 < handle
         end
         function q = deconvBayes(this, varargin)
             k = this.kernel(varargin{:}); % length(k) >= length(this.Measurement)
-
-            if isempty(this.deconvCache_)
-                this.deconvCache_ = containers.Map('KeyType', 'double', 'ValueType', 'any');
-            end
-            if ~isKey(this.deconvCache_, length(k))
-                M = this.Measurement;
+            M = asrow(this.Measurement);
+            if ~isempty(this.radialArteryLeeCache_)
+                ral = this.radialArteryLeeCache_;
+            else
                 ral = mlswisstrace.RadialArteryLee2021( ...
                     'tracer', this.tracer, ...
                     'kernel', k, ...
                     'model_kind', '3bolus', ...
-                    'Measurement', M);
+                    'Measurement', M, ...
+                    varargin{:});
                 ral = ral.solve();
-                this.deconvCache_(length(k)) = ral.deconvolved() .* 2.^(this.t0/this.halflife); % catheter deconv doesn't know how to shift world-lines
-                this.radialArteryKit = ral;
+                this.radialArteryLeeCache_ = ral;
             end
-            q = this.deconvCache_(length(k));
+            %plot(ral);
+            %assert(ral.loss() < 0.1, clientname(true, 2))
+            q = ral.deconvolved() .* 2.^(this.t0/this.halflife); % catheter deconv doesn't know how to shift world-lines                
         end
         function k = kernel(this, varargin)
             %% including regressions on catheter data of 2019 Sep 30
@@ -102,7 +153,7 @@ classdef Catheter_DT20190930 < handle
             
             ip = inputParser;
             ip.KeepUnmatched = true;
-            ip.PartialMatching= false;
+            ip.PartialMatching = false;
             addParameter(ip, 'Nt', [], @isnumeric)
             parse(ip, varargin{:})
             ipr = ip.Results;
@@ -177,12 +228,13 @@ classdef Catheter_DT20190930 < handle
             assert(this.hct > 1)
             this.tracer = ipr.tracer;
  		end
-    end     
+    end
     
     %% PROTECTED
     
     properties (Access = protected) 
         deconvCache_
+        radialArteryLeeCache_
         timeInterpolants_
     end
     

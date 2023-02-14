@@ -62,10 +62,11 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
             %  @param solver is in {'simulanneal'}.
 
             %  for mlswisstrace.RadialArteryLee2021Model: 
-            %  @param tracer \in {'CO' 'OC' 'OO' 'HO' 'FDG'}  *****
-            %  @param model_kind is char, e.g. '1bolus', '2bolus', '3bolus'.  *****
+            %  @param tracer \in {'CO' 'OC' 'OO' 'HO' 'FDG'}, passed to model.  *****
+            %  @param model_kind is char, e.g. '1bolus', '2bolus', '3bolus', passed to model.  *****
             %  @param map is a containers.Map.  Default := RadialArteryLee2021Model.preferredMap.
  			%  @param kernel is numeric, default := 1.
+            %  @param t0_forced is scalar, default empty, passed to model.  *****
             %
             %  for mlswisstrace.RadialArteryLee2021SimulAnneal:
             %  @param context is mlswisstrace.RadialArteryLee2021.
@@ -73,9 +74,9 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
             
             ip = inputParser;
             ip.KeepUnmatched = true;
-            addParameter(ip, 'Measurement', [], @(x) isnumeric(x))
-            addParameter(ip, 'solver', 'simulanneal', @ischar)
-            parse(ip, varargin{:})
+            addParameter(ip, 'Measurement', [], @(x) isnumeric(x));
+            addParameter(ip, 'solver', 'simulanneal', @ischar);
+            parse(ip, varargin{:});
             ipr = ip.Results;
             this.measurement = ipr.Measurement;            
  			this.model = mlswisstrace.RadialArteryLee2021Model(varargin{:});

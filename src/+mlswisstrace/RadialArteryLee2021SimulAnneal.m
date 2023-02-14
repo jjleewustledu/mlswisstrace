@@ -53,8 +53,10 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
                 fprintf('\t%s = %g\n', this.ks_names{ky}, this.ks(ky));
             end 
             fprintf('\tloss = %g\n', this.loss())
-            for ky = this.map.keys
-                fprintf('\tmap(''%s'') => %s\n', ky{1}, struct2str(this.map(ky{1})));
+            keys = this.map.keys;
+            for ky = 1:length(this.ks)
+                fprintf('\tmap(''%s'') => %s\n', this.ks_names{ky}, ...
+                    join(struct2str(this.map(keys{ky}), orientation='horz')));
             end
         end
         function Q = loss(this)
@@ -214,12 +216,14 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
                 s = [s sprintf('\t%s = %g\n', this.ks_names{ky}, this.ks(ky))]; %#ok<AGROW>
             end
             s = [s sprintf('\tloss = %g\n', this.loss())];
-            for ky = this.map.keys
-                s = [s sprintf('\tmap(''%s'') => %s\n', ky{1}, struct2str(this.map(ky{1})))]; %#ok<AGROW>
+            keys = this.map.keys;
+            for ky = 1:length(this.ks)
+                s = [s sprintf('\tmap(''%s'') => %s\n', this.ks_names{ky}, ...
+                    join(struct2str(this.map(keys{ky}), orientation='horz')))]; %#ok<AGROW>
             end
         end
 		  
- 		function this = RadialArteryLee2021SimulAnneal(varargin)            
+ 		function this = RadialArteryLee2021SimulAnneal(varargin)
             this = this@mloptimization.SimulatedAnnealing(varargin{:}); 			
             [this.ks_lower,this.ks_upper,this.ks0] = remapper(this);
  		end
