@@ -1,5 +1,6 @@
 classdef TwiliteCatheterCalibration < mlswisstrace.AbstractTwilite
-	%% TWILITECATHETERCALIBRATION  
+	%% TWILITECATHETERCALIBRATION:
+    %  Call calibrateCatheter() to generate mlswisstrace.CatheterModel
 
 	%  $Revision$
  	%  was created 19-Jul-2017 23:38:06 by jjlee,
@@ -23,7 +24,8 @@ classdef TwiliteCatheterCalibration < mlswisstrace.AbstractTwilite
             parse(ip, varargin{:})
             ipr = ip.Results;
 
-            crvpth = fullfile(getenv('HOME'), 'Documents', 'private', 'Twilite', 'catheter_calibration_20190930', '');
+            crvpth = fullfile(getenv('SINGULARITY_HOME'), ...
+                'CCIRRadMeasurements', 'Twilite', 'catheter_calibration_20190930');
             crvfp = sprintf('fdg_dt%d%02d%02d', ipr.dt.Year, ipr.dt.Month, ipr.dt.Day);
             crvfqfn = fullfile(crvpth, [crvfp '.crv']);
             assert(isfile(crvfqfn))
@@ -35,6 +37,9 @@ classdef TwiliteCatheterCalibration < mlswisstrace.AbstractTwilite
                 'doseAdminDatetime', crm.datetimeTracerAdmin('tracer', 'FDG', 'earliest', true));
         end
         function calibrateCatheter()
+            %% Fits mlswisstrace.CatheterModel, 
+            %  saving mlswisstrace.TwiliteCatheterCalibration.calibrateCatheter.mat in the work path.
+
             import mlswisstrace.*
             tcc = TwiliteCatheterCalibration.create();
             %tcc.plotCounts()
@@ -97,6 +102,9 @@ classdef TwiliteCatheterCalibration < mlswisstrace.AbstractTwilite
             save('mlswisstrace.TwiliteCatheterCalibration.calibrateCatheter.mat')
         end
         function calibrateCatheter2()
+            %% Fits mlswisstrace.CatheterModel2, 
+            %  saving mlswisstrace_TwiliteCatheterCalibration_LRw/mlswisstrace_TwiliteCatheterCalibration_LRw.mat in the work path.
+
             import mlswisstrace.*
             
             % construct prerequisites

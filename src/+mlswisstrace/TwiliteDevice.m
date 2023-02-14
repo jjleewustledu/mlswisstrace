@@ -15,35 +15,42 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         deconvCatheter
         Dt
         hct
+        invEfficiency
         radialArteryKit
         timeCliff
+        t0_forced
  	end
     
     methods (Static)
-        function this = createFromSession(varargin)
-            import mlswisstrace.TwiliteDevice.findCalibrationSession
-            
-            data = mlswisstrace.TwiliteData.createFromSession(varargin{:});
-            Dt   = 2*ceil(mlswisstrace.Catheter_DT20190930.t0); % provide room for delay corrections
+        function this = createFromSession(sesd, varargin)
+            data = mlswisstrace.TwiliteData.createFromSession(sesd, varargin{:});
+            Dt = 2*ceil(mlswisstrace.Catheter_DT20190930.t0); % provide room for delay corrections
             data.time0 = max(data.time0 - Dt, 0);
-            rm   = mlpet.CCIRRadMeasurements.createFromSession(varargin{:});
-            hct  = rm.fromPamStone{'Hct',1};
+            rm = mlpet.CCIRRadMeasurements.createFromSession(sesd, varargin{:});
+            hct = rm.laboratory{'Hct',1};
             if iscell(hct)
                 hct = hct{1};
             end
-            if ischar(hct)
+            if istext(hct)
                 hct = str2double(hct);
             end
+            if isa(sesd, 'mlnipet.SessionData')
+                t0_forced = sesd.t0_forced;
+            else
+                t0_forced = [];
+            end
+            cal = mlswisstrace.TwiliteCalibration.createFromSession( ...
+                mlswisstrace.TwiliteDevice.findCalibrationSession(sesd, varargin{:}));
             this = mlswisstrace.TwiliteDevice( ...
-                'calibration', mlswisstrace.TwiliteCalibration.createFromSession( ...
-                    findCalibrationSession(varargin{:})), ...
+                'calibration', cal, ...
                 'data', data, ...
-                'hct', hct);
+                'hct', hct, ...
+                't0_forced', t0_forced);
             
-            if mean(this.countRate) < 2*mean(this.baselineCountRate)
+            if max(this.countRate) < 10*std(this.baselineCountRate) + mean(this.baselineCountRate)
                 error('mlswisstrace:ValueError', ...
                     'TwiliteDevice.createFromSession:  mean(countRate) ~ %g but mean(baseline) ~ %g.', ...
-                    mean(countRate), mean(baselineCountRate))
+                    mean(this.countRate), mean(this.baselineCountRate))
             end
         end
         function ie = invEfficiencyf(sesd)
@@ -87,6 +94,9 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         function g = get.hct(this)
             g = this.catheter_.hct;
         end
+        function g = get.invEfficiency(this)
+            g = this.invEfficiency_;
+        end
         function g = get.radialArteryKit(this)
             g = this.catheter_.radialArteryKit;
         end
@@ -96,6 +106,13 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         function     set.timeCliff(this, s)
             assert(isscalar(s))
             this.timeCliff_ = s;
+        end
+        function g = get.t0_forced(this)
+            g = this.t0_forced_;
+        end
+        function     set.t0_forced(this, s)
+            assert(isnumeric(s));
+            this.t0_forced_ = s;
         end
 		  
         %%        
@@ -112,7 +129,7 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
                 return
             end
             this.catheter_.Measurement = this.data_.activity(varargin{:});
-            a_ = this.catheter_.deconvBayes(varargin{:});
+            a_ = this.catheter_.deconvBayes('t0_forced', this.t0_forced, varargin{:});
             a = this.invEfficiency_*a_;
         end
         function a = activityDensity(this, varargin)
@@ -150,30 +167,37 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         Dt_
         invEfficiency_
         timeCliff_
+        t0_forced_
     end
     
     methods (Access = protected)        
  		function this = TwiliteDevice(varargin)
- 			%% TWILITEDEVICE
-            
-            import mlswisstrace.TwiliteDevice.findCalibrationSession   
-            import mlcapintec.RefSourceCalibration
-            
- 			this = this@mlpet.AbstractDevice(varargin{:});
-            
+ 			this = this@mlpet.AbstractDevice(varargin{:});            
             ip = inputParser;
             ip.KeepUnmatched = true;
-            addParameter(ip, 'hct', 45, @isnumeric)
-            addParameter(ip, 'deconvCatheter', true, @islogical)
+            addParameter(ip, 'hct', 45, @isnumeric);
+            addParameter(ip, 'deconvCatheter', true, @islogical);
+            addParameter(ip, 't0_forced', [], @isnumeric);
+            addParameter(ip, 'timeCliff', @isscalar)
             parse(ip, varargin{:})
+            ipr = ip.Results;
             
+            if contains(this.tracer, 'fdg', IgnoreCase=true)
+                model_kind = '2bolus';
+            else
+                model_kind = '3bolus';
+            end
             this.catheter_ = mlswisstrace.Catheter_DT20190930( ...
                 'Measurement', this.countRate, ...
-                'hct', ip.Results.hct, ...
-                'tracer', this.tracer);
-            this.invEfficiency_ = mean(this.calibration_.invEfficiency) * RefSourceCalibration.invEfficiencyf();
-            this.deconvCatheter_ = ip.Results.deconvCatheter;
-            this.timeCliff_ = Inf;
+                'hct', ipr.hct, ...
+                'tracer', this.tracer, ...
+                'model_kind', model_kind);
+            this.invEfficiency_ = ...
+                mean(this.calibration_.invEfficiency)* ...
+                mlcapintec.RefSourceCalibration.invEfficiencyf();
+            this.deconvCatheter_ = ipr.deconvCatheter;
+            this.t0_forced_ = ipr.t0_forced;
+            this.timeCliff_ = ipr.timeCliff;
  		end
     end
     

@@ -48,7 +48,7 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
             N = length(this.measurement);
             ks = this.strategy_.ks;
             mdl = this.model;
-            rho = M0*this.model.sampled(ks, N, mdl.kernel, mdl.tracer, mdl.model_kind);
+            p
         end
         function this = solve(this, varargin)
             %% @param required loss_function is function_handle.

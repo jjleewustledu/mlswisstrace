@@ -14,6 +14,7 @@ classdef Catheter_DT20190930 < handle
     properties
         hct
         Measurement
+        model_kind
         sgolayWindow1 = 12
         sgolayWindow2 = 4        
         tracer
@@ -137,7 +138,7 @@ classdef Catheter_DT20190930 < handle
                 ral = mlswisstrace.RadialArteryLee2021( ...
                     'tracer', this.tracer, ...
                     'kernel', k, ...
-                    'model_kind', '3bolus', ...
+                    'model_kind', this.model_kind, ...
                     'Measurement', M, ...
                     varargin{:});
                 ral = ral.solve();
@@ -214,6 +215,7 @@ classdef Catheter_DT20190930 < handle
             addParameter(ip, 'Measurement', [], @isnumeric)
             addParameter(ip, 'hct', 45, @isnumeric)
             addParameter(ip, 'tracer', [], @(x) ~isempty(x) && ischar(x))
+            addParameter(ip, 'model_kind', '3bolus', @istext)
             parse(ip, varargin{:})
             ipr = ip.Results;
             
@@ -227,6 +229,7 @@ classdef Catheter_DT20190930 < handle
             this.hct = ipr.hct;
             assert(this.hct > 1)
             this.tracer = ipr.tracer;
+            this.model_kind = ipr.model_kind;
  		end
     end
     

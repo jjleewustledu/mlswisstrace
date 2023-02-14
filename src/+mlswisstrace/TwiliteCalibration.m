@@ -15,11 +15,70 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
     end
     
     methods (Static)
-        function buildCalibration()
+        function dispCalibration(varargin)
+            %  Args:
+            %      filename (required file)
+            %      halflife (required text|scalar):  '15O', '18F', '11C', or seconds
+            %      baseline_t0 (datetime):  1st datetime for baseline, DEFAULT is start of file
+            %      baseline_tf (datetime):  last datetime for baseline
+            %      reference_t0 (datetime):  1st datetime for reference, DEFAULT is 5 sec after baseline_tf
+            %      reference_tf (datetime):  last datetime for reference, DEFAULT is end of file
+
+            ip = inputParser;
+            addRequired(ip, 'filename', @isfile);
+            addRequired(ip, 'halflife', @(x) istext(x) || isscalar(x))
+            addParameter(ip, 'baseline_t0', NaT, @isdatetime);
+            addParameter(ip, 'baseline_tf', NaT, @isdatetime);
+            addParameter(ip, 'reference_t0', NaT, @isdatetime);
+            addParameter(ip, 'reference_tf', NaT, @isdatetime);
+            parse(ip, varargin{:});
+            ipr = ip.Results;
+            if istext(ipr.halflife)
+                ipr.halflife = mlpet.Radionuclides.halflifeOf(ipr.halflife);
+            end
+
+            % visualize
+            cal = mlswisstrace.CrvData(ipr.filename);
+            plotAll(cal);
+
+            % determine baseline activity
+            if isnat(ipr.baseline_t0)
+                ipr.baseline_t0 = cal.time(1);
+            end
+            ipr.baseline_t0 = ensureTimeZone(ipr.baseline_t0);
+            [~,baseline_idx0] = max(cal.time > ipr.baseline_t0);
+            if isnat(ipr.baseline_tf)
+                return
+            end
+            ipr.baseline_tf = ensureTimeZone(ipr.baseline_tf);
+            [~,baseline_idxf] = max(cal.time > ipr.baseline_tf);
+            baseline = cal.coincidence(baseline_idx0:baseline_idxf);
+
+            % determine reference activity, decay-corrected
+            if isnat(ipr.reference_t0)
+                ipr.reference_t0 = ipr.baseline_tf + seconds(5);
+            end
+            ipr.reference_t0 = ensureTimeZone(ipr.reference_t0);
+            [~,reference_idx0] = max(cal.time > ipr.reference_t0);
+            if isnat(ipr.reference_tf)
+                ipr.reference_tf = cal.time(end);
+            end
+            ipr.reference_tf = ensureTimeZone(ipr.reference_tf);
+            [~,reference_idxf] = max(cal.time >= ipr.reference_tf);
+            reference = cal.coincidence(reference_idx0:reference_idxf);
+            N = length(reference);
+            reference = reference .* (2.^((0:N-1)/ipr.halflife))';
+
+            % disp
+            fprintf(strcat(clientname(false, 2), ":\n"));
+            fprintf('mean(baseline(%s -> %s)):  %g\n', ipr.baseline_t0, ipr.baseline_tf, mean(baseline));
+            fprintf('std( baseline(%s -> %s)):  %g\n', ipr.baseline_t0, ipr.baseline_tf, std( baseline));
+            fprintf('mean(reference(%s -> %s)):  %g\n', ipr.reference_t0, ipr.reference_tf, mean(reference));
+            fprintf('std( reference(%s -> %s)):  %g\n', ipr.reference_t0, ipr.reference_tf, std( reference));
         end
         function this = createFromSession(sesd, varargin)
             %% CREATEBYSESSION
-            %  @param required sessionData is an mlpipeline.ISessionData.
+            %  @param required sessionData is an mlpipeline.{ISessionData,ImagingData}.
             %  @param offset is numeric & searches for alternative SessionData.
             
             import mlswisstrace.TwiliteCalibration
@@ -27,7 +86,10 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
             this = TwiliteCalibration(sesd, varargin{:});                
             
             offset = 0;
-            while ~this.calibrationAvailable              
+            while ~this.calibrationAvailable
+                if isa(sesd, 'mlpipeline.ImagingMediator')
+                    error('mlswisstrace:ValueError', stackstr())
+                end
                 offset = offset + 1;
                 sesd1 = sesd.findProximal(offset);
                 this = TwiliteCalibration(sesd1, varargin{:});
@@ -35,9 +97,8 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
         end
         function ie = invEfficiencyf(obj)
             %% INVEFFICIENCYF attempts to use calibration data from the nearest possible datetime.
-            %  @param obj is an mlpipeline.ISessionData
+            %  @param obj is an mlpipeline.{ISessionData,ImagingData}
             
-            assert(isa(obj, 'mlpipeline.ISessionData'))
             this = mlswisstrace.TwiliteCalibration.createFromSession(obj);
             ie = this.invEfficiency;
         end

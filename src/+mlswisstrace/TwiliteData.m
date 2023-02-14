@@ -20,15 +20,17 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
     methods (Static)
         function this = createFromSession(sesd, varargin)
             this = [];
-            assert(isa(sesd, 'mlpipeline.ISessionData'))
+            assert(isa(sesd, 'mlpipeline.ISessionData') || isa(sesd, 'mlpipeline.ImagingMediator'))
             
             try
+                rm = mlpet.CCIRRadMeasurements.createFromSession(sesd);
                 this = mlswisstrace.TwiliteData( ...
                     'isotope', sesd.isotope, ...
                     'tracer', sesd.tracer, ...
                     'datetimeMeasured', sesd.datetime, ...
+                    'radMeasurements', rm, ...
                     varargin{:});
-                if lstrfind(lower(sesd.tracer), 'fdg')
+                if contains(lower(sesd.imagingContext.fileprefix), 'phantom')
                     fn = sprintf('*fdg_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
                     fqfnCrvs = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite', 'CRV', fn));
                     this.read(fqfnCrvs{1});
@@ -172,7 +174,16 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
                 this.baselineCountRate_ = this.countRate('index0', idxF-59, 'indexF', idxF);
             end
             
-            assert(mean(this.baselineCountRate_) < 300, 'mlswisstrace:ValueError', 'TwiliteData.findBaseline')
+            if mean(this.baselineCountRate_) > 300
+                cps = this.radMeasurements.twilite.TwiliteBaseline_CoincidentCps;
+                if isnumeric(cps)
+                    this.baselineCountRate_ = cps;
+                else
+                    error('mlswisstrace:ValueError', ...
+                        'TwiliteData.findBaseline.baselineCountRate_->%g', ...
+                        this.baselineCountRate_);
+                end
+            end
         end
         function this = findBolus(this, doseAdminDatetime)
             %% FINDBOLUS finds start and termination of bolus; this.index0 := start; this.indexF := termination.
@@ -200,7 +211,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             [~,idxPeak] = max(this.countRate('index0', this.index0, 'indexF', terminationIndex));
             
             % find index just after bolus terminates
-            [~,idxF] = max(this.countRate('index0', this.index0+idxPeak, 'indexF', this.indexF) < thresh);
+            [~,idxF] = max(this.countRate('index0', this.index0+idxPeak, 'indexF', this.indexF) < mean(this.baselineCountRate));
             this.indexF = this.index0 + idxPeak + idxF - 1;
             if idxF == 1 && this.indexF < this.indices(end)                
                 % manage bolus that persists to end of data
@@ -226,6 +237,10 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
                 'FileType', 'text', 'ReadVariableNames', false, 'ReadRowNames', false);            
             dt = datetime(tbl.Var1, tbl.Var2, tbl.Var3, tbl.Var4, tbl.Var5, tbl.Var6, ...
                 'TimeZone', mlpipeline.ResourcesRegistry.instance().preferredTimeZone);
+            offset = this.radMeasurements.clocks{'PMOD workstation', 'TimeOffsetWrtNTS____s'};
+            if offset ~= 0
+                dt = dt - seconds(offset);
+            end
             coin = tbl.Var7;
             if length(tbl.Properties.VariableNames) >= 9
                 ch1 = tbl.Var8;
