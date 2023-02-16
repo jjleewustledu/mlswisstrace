@@ -106,6 +106,27 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             
             a = this.activity(varargin{:})/this.visibleVolume;
         end
+        function appendActivityDensity(this, dt, activityDensity)
+            arguments
+                this mlswisstrace.TwiliteData
+                dt datetime
+                activityDensity double
+            end
+            assert(length(dt) == length(activityDensity))
+            coin = activityDensity*this.visibleVolume/this.activityOverCountRate_ + ...
+                mean(this.baselineCountRate);
+            N = length(dt);
+            T = this.tableTwilite_;
+            T(T.datetime >= dt(1),:) = [];
+            U = table(ascol(dt), ascol(coin), zeros(N,1), zeros(N,1), ...
+                VariableNames={'datetime' 'coincidences' 'channel1' 'channel2'});
+            this.tableTwilite_ = [T; U];
+
+            % fundamental data structures are times, time0, timeF, datetimeMeasured
+            this.timingData_.times = this.timingData_.timing2num( ...
+                this.tableTwilite_.datetime - this.tableTwilite_.datetime(1));
+            this.timingData_.timeF = this.timingData_.times(end);
+        end
         function c = countRate(this, varargin)
             %% cps
             %  @param decayCorrected, default := false.

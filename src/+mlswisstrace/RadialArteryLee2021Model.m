@@ -274,7 +274,7 @@ classdef RadialArteryLee2021Model
                     this.map('k5') = struct('min',  0,    'max',  30,    'init',  0,    'sigma', 0.05); % t0 in sec   
                     this.map('k6') = struct('min', 0.05,  'max',   0.5,  'init',  0.05, 'sigma', 0.05); % steady-state fraction in (0, 1)  
                     this.map('k7') = struct('min', 0.05,  'max',   0.25, 'init',  0.05, 'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
-                    this.map('k8') = struct('min', eps,   'max',  30,    'init',  5,    'sigma', 0.05); % recirc delay in sec
+                    this.map('k8') = struct('min', 5,     'max',  20,    'init', 10,    'sigma', 0.05); % recirc delay in sec
                 case {'HO' 'OH'}
                 case {'CO' 'OC'}  
                     this.map('k1') = struct('min',  0.1,  'max',   5,    'init',  0.25, 'sigma', 0.05); % alpha

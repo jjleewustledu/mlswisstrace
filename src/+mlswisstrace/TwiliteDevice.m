@@ -140,6 +140,9 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
             
             a = this.activity(varargin{:})/this.data_.visibleVolume;
         end
+        function appendActivityDensity(this, varargin)
+            this.data_.appendActivityDensity(varargin{:});
+        end
         function c = countRate(this, varargin)
             %% has no calibrations nor catheter adjustments; in cps
             %  @param decayCorrected, default := false.
