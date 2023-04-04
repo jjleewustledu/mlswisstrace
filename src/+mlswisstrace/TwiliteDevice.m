@@ -61,7 +61,7 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
 
 	methods 
         
-        %% GET
+        %% GET/SET
         
         function g = get.baselineActivity(this)
             g = this.data_.baselineActivity;
@@ -131,6 +131,7 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
             this.catheter_.Measurement = this.data_.activity(varargin{:});
             a_ = this.catheter_.deconvBayes('t0_forced', this.t0_forced, varargin{:});
             a = this.invEfficiency_*a_;
+            a = this.blood2plasma(a, 1:length(a), this.hct);
         end
         function a = activityDensity(this, varargin)
             %% is calibrated to ref-source and catheter-adjusted; Bq/mL

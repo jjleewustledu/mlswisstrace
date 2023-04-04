@@ -48,12 +48,20 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
             N = length(this.measurement);
             ks = this.strategy_.ks;
             mdl = this.model;
-            p
+            p = [];
+            error('mlswisstrace:notImplementedError', 'RadialArteryLee2021.sampled')
         end
         function this = solve(this, varargin)
             %% @param required loss_function is function_handle.
             
             this.strategy_ = solve(this.strategy_, @mlswisstrace.RadialArteryLee2021Model.loss_function);
+        end
+        function writetable(this)
+            rho_Bq_mL = this.deconvolved()';
+            N = length(rho_Bq_mL);
+            times_sec = (0:N-1)';
+            T = table(times_sec, rho_Bq_mL);
+            writetable(T, strcat(this.fqfileprefix, '-deconvolved.csv'));
         end
 		  
  		function this = RadialArteryLee2021(varargin)

@@ -277,7 +277,7 @@ classdef RadialArteryLee2021Model
                     this.map('k8') = struct('min', 5,     'max',  20,    'init', 10,    'sigma', 0.05); % recirc delay in sec
                 case {'HO' 'OH'}
                 case {'CO' 'OC'}  
-                    this.map('k1') = struct('min',  0.1,  'max',   5,    'init',  0.25, 'sigma', 0.05); % alpha
+                    this.map('k1') = struct('min',  0.1,  'max',  10,    'init',  0.25, 'sigma', 0.05); % alpha
                     this.map('k2') = struct('min', 10,    'max',  25,    'init', 15,    'sigma', 0.05); % beta
                     this.map('k3') = struct('min',  0.25, 'max',   1,    'init',  0.5,  'sigma', 0.05); % p
 
