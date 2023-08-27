@@ -20,9 +20,15 @@ classdef RadialArteryLee2021Model
     end
     
     methods (Static)
-        function rho = decay_corrected(rho, tracer)
+        function rho = decay_corrected(rho, tracer, t0)
+            arguments
+                rho double
+                tracer {mustBeTextScalar}
+                t0 double = 0
+            end
             import mlswisstrace.RadialArteryLee2021Model.halflife
-            times = 0:(length(rho)-1);
+            times = (0:(length(rho)-1)) - t0;
+            times(1:t0+1) = 0;
             rho = rho .* 2.^(times/halflife(tracer));
         end
         function rho = deconvolved(ks, N, kernel, tracer, model_kind)

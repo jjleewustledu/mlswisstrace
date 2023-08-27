@@ -74,14 +74,16 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
             decay_corrected = @mlswisstrace.RadialArteryLee2021Model.decay_corrected;
             deconvolved = @mlswisstrace.RadialArteryLee2021Model.deconvolved;
             sampled = @mlswisstrace.RadialArteryLee2021Model.sampled;
-            M = decay_corrected(this.Measurement, this.tracer);
+            t0_dc = this.ks(5);
+            M = decay_corrected(this.Measurement, this.tracer, t0_dc);
             N = length(M);
             M0 = max(this.Measurement);
             
             h = figure;
             samp = M0*sampled(this.ks, N, this.kernel, this.tracer, this.model_kind);
-            samp = decay_corrected(samp, this.tracer);
+            samp = decay_corrected(samp, this.tracer, t0_dc);
             deconvolved = M0*deconvolved(this.ks, N, this.kernel, this.tracer, this.model_kind);
+            deconvolved = decay_corrected(deconvolved, this.tracer, t0_dc);
             times = 0:N-1;
             
             if isempty(this.zoom)
