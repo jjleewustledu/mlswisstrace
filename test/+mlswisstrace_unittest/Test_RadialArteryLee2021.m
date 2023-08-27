@@ -19,6 +19,22 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
  	end
 
 	methods (Test)
+
+        %% trivial kernels and data ~ hand-drawn
+
+        function test_solve_trivial_kernel(this)
+ 			import mlswisstrace.*;		
+ 			obj = RadialArteryLee2021( ...
+                'tracer', this.tracer, ...
+                'kernel', 1, ...
+                'model_kind', '3bolus', ...
+                'Measurement', this.Simulation());
+            obj = obj.solve();
+            plot(obj)
+        end
+
+        %% realistic kernels and data ~ Twilite
+
 		function test_solve(this)
  			import mlswisstrace.*;		
  			obj = RadialArteryLee2021( ...
