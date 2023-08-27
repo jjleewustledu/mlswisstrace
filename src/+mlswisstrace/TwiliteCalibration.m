@@ -191,7 +191,7 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
                 % get activity density from Caprac
                 
                 rm = this.radMeasurements_;            
-                rowSelect = strcmp(rm.wellCounter.TRACER, '[18F]DG') & ...
+                rowSelect = strcmp(rm.wellCounter.TRACER, this.CAL_TRACER) & ...
                     isnice(rm.wellCounter.MassSample_G) & ...
                     isnice(rm.wellCounter.Ge_68_Kdpm);
                 mass = rm.wellCounter.MassSample_G(rowSelect);
@@ -202,9 +202,11 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
                     rm.wellCounter.TIMECOUNTED_Hh_mm_ss(rowSelect)); % backwards in time, clock-adjusted            
                 capCal = mlcapintec.CapracCalibration.createFromSession(sesd, 'radMeasurements', rm, 'exactMatch', true);
                 activityDensityCapr = capCal.activityDensity('mass', mass, 'ge68', ge68, 'solvent', 'water');
-                activityDensityCapr = this.shiftWorldLines(activityDensityCapr, shift, this.radionuclide_.halflife);
+                activityDensityCapr = this.shiftWorldLines(activityDensityCapr, shift, this.calibration_halflife);
                 
                 % get activity density from Twilite data sources && form efficiency^{-1}
+
+                % branching ratios cancel for this.invEfficiency_
                 
                 this.twiliteData_ = mlswisstrace.TwiliteData.createFromSession(sesd, 'radMeasurements', rm);
                 this.invEfficiency_ = mean(activityDensityCapr)/mean(this.activityDensityForCal());
