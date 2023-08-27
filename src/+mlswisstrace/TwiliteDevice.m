@@ -13,7 +13,9 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
  		calibrationAvailable
         catheterKit
         deconvCatheter
+        do_close_fig
         Dt
+        fqfileprefix
         hct
         invEfficiency
         radialArteryKit
@@ -59,10 +61,7 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         end
     end
 
-	methods 
-        
-        %% GET/SET
-        
+	methods % GET/SET        
         function g = get.baselineActivity(this)
             g = this.data_.baselineActivity;
         end
@@ -84,12 +83,26 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         function     set.deconvCatheter(this, s)
             this.deconvCatheter_ = s;
         end
+        function g = get.do_close_fig(this)
+            g = this.catheter_.do_close_fig;
+        end
+        function     set.do_close_fig(this, s)
+            assert(islogical(s))
+            this.catheter_.do_close_fig = s;
+        end
         function g = get.Dt(this)
             g = this.Dt_;
         end
         function     set.Dt(this, s)
             assert(isscalar(s))
             this.Dt_ = s;
+        end
+        function g = get.fqfileprefix(this)
+            g = this.catheter_.fqfileprefix;
+        end
+        function     set.fqfileprefix(this, s)
+            assert(istext(x))
+            this.catheter_.fqfileprefix = s;
         end
         function g = get.hct(this)
             g = this.catheter_.hct;
@@ -114,9 +127,9 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
             assert(isnumeric(s));
             this.t0_forced_ = s;
         end
-		  
-        %%        
-        
+    end
+
+    methods
         function a = activity(this, varargin)
             %% is calibrated to ref-source and catheter-adjusted and shifted in worldline; Bq
             %  @param decayCorrected, default := false.
@@ -183,6 +196,8 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
             addParameter(ip, 'deconvCatheter', true, @islogical);
             addParameter(ip, 't0_forced', [], @isnumeric);
             addParameter(ip, 'timeCliff', @isscalar)
+            addParameter(ip, 'fqfileprefix', '', @istext)
+            addParameter(ip, 'do_close_fig', false, @islogical)
             parse(ip, varargin{:})
             ipr = ip.Results;
             
@@ -190,7 +205,9 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
                 'Measurement', this.countRate, ...
                 'hct', ipr.hct, ...
                 'tracer', this.tracer, ...
-                'model_kind', '3bolus');
+                'model_kind', '3bolus', ...
+                'fqfileprefix', ipr.fqfileprefix, ...
+                'do_close_fig', ipr.do_close_fig);
             this.invEfficiency_ = ...
                 mean(this.calibration_.invEfficiency)* ...
                 mlcapintec.RefSourceCalibration.invEfficiencyf();

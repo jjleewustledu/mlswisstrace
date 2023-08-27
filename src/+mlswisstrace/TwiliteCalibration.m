@@ -104,10 +104,7 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
         end
     end
     
-	methods 
-        
-        %% GET
-        
+	methods % GET        
         function g = get.Bq_over_cps(this)
             g = asrow(this.Bq_over_cps_);
         end
@@ -124,9 +121,9 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
         function g = get.twiliteData(this)
             g = this.twiliteData_;
         end
-        
-        %%        
-        
+    end
+
+    methods
         function [ad,td] = activityDensityForCal(this)
             %% finds the temporally most proximate Twilite cal data and estimates activity density in Bq/mL.
             
