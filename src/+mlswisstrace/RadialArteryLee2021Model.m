@@ -76,7 +76,7 @@ classdef RadialArteryLee2021Model
             m('k6') = struct('min',  0.1,   'max',   0.3,  'init',  0.2,  'sigma', 0.05); % steady-state fraction in (0, 1), for rising baseline
             m('k7') = struct('min',  0.05,  'max',   0.1,  'init',  0.05, 'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
             m('k8') = struct('min', 15,     'max',  90,    'init', 30,    'sigma', 0.05); % recirc delay in sec
-            m('k9') = struct('min',  0.05,  'max',   0.25, 'init',  0.05, 'sigma', 0.05); % baseline amplitude fraction \approx 0.05
+            m('k9') = struct('min',  0.05,  'max',   0.5,  'init',  0.05, 'sigma', 0.05); % baseline amplitude fraction \approx 0.05
         end    
         function qs = sampled(ks, N, kernel, tracer, model_kind)
             %% @return the Bayesian estimate of the measured AIF, including baseline, scaled to unity.
@@ -276,6 +276,7 @@ classdef RadialArteryLee2021Model
                     this.map('k7') = struct('min', 0.05,  'max',   0.25, 'init',  0.05, 'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
                     this.map('k8') = struct('min', 5,     'max',  20,    'init', 10,    'sigma', 0.05); % recirc delay in sec
                 case {'HO' 'OH'}
+                    this.map('k9') = struct('min',  0.05, 'max',   0.25, 'init',  0.05, 'sigma', 0.05); % baseline amplitude fraction \approx 0.05
                 case {'CO' 'OC'}  
                     this.map('k1') = struct('min',  0.1,  'max',  10,    'init',  0.25, 'sigma', 0.05); % alpha
                     this.map('k2') = struct('min', 10,    'max',  25,    'init', 15,    'sigma', 0.05); % beta
@@ -290,16 +291,17 @@ classdef RadialArteryLee2021Model
                     % allow double inhalation
                     this.map('k1') = struct('min', 1,     'max',   5,    'init',  1,    'sigma', 0.05); % alpha
                     this.map('k2') = struct('min', 0.1,   'max',  25,    'init',  0.1,  'sigma', 0.05); % beta
-                    this.map('k5') = struct('min', 0,     'max',  30,    'init',  0,    'sigma', 0.05); % t0 in sec   
+                    this.map('k5') = struct('min', 5,     'max',  30,    'init',  0,    'sigma', 0.05); % t0 in sec   
 
                     this.map('k7') = struct('min', 0.05,  'max',   0.49, 'init',  0.05, 'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
                     this.map('k8') = struct('min', eps,   'max',  30,    'init', 15,    'sigma', 0.05); % recirc delay in sec
+                    this.map('k9') = struct('min',  0.05, 'max',   0.25, 'init',  0.05, 'sigma', 0.05); % baseline amplitude fraction \approx 0.05
                 otherwise
                     % noninformative
             end
 
             if ~isempty(this.t0_forced)
-                this.map('k5') = struct('min', this.t0_forced, 'max', this.t0_forced, 'init', this.t0_forced, 'sigma', 0.05); % t0 in sec
+                this.map('k5') = struct('min', this.t0_forced-1, 'max', this.t0_forced+1, 'init', this.t0_forced, 'sigma', 0.05); % t0 in sec
             end
         end
     end
