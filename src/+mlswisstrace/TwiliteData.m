@@ -16,43 +16,8 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
         tableTwilite % all stored data
         visibleVolume 
     end
-    
-    methods (Static)
-        function this = createFromSession(sesd, varargin)
-            this = [];
-            assert(isa(sesd, 'mlpipeline.ISessionData') || isa(sesd, 'mlpipeline.ImagingMediator'))
-            
-            try
-                rm = mlpet.CCIRRadMeasurements.createFromSession(sesd);
-                this = mlswisstrace.TwiliteData( ...
-                    'isotope', sesd.isotope, ...
-                    'tracer', sesd.tracer, ...
-                    'datetimeMeasured', sesd.datetime, ...
-                    'radMeasurements', rm, ...
-                    varargin{:});
-                if contains(lower(sesd.imagingContext.fileprefix), 'phantom')
-                    fn = sprintf('*fdg_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
-                    fqfnCrvs = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite', 'CRV', fn));
-                    this.read(fqfnCrvs{1});
-                else
-                    fn = sprintf('*o15_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
-                    fqfnCrvs = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite', 'CRV', fn));
-                    this.read(fqfnCrvs{1});
-                    this.findBaseline(this.datetimeMeasured);
-                    this.datetimeForDecayCorrection = sesd.datetime;
-                    this.timingData_.datetime0 = sesd.datetime;
-                    this.findBolus(sesd.datetime);
-                    %this.removeBaselineCountRate();
-                end
-            catch ME
-                handwarning(ME)
-            end
-        end
-    end
 
-	methods
-        
-        %% GET
+	methods %% GET
         function g = get.baselineActivity(this)
             g = this.activityOverCountRate_*this.baselineCountRate;
         end
@@ -89,9 +54,8 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             end
             g = this.visibleVolume_;
         end
-        
-        %%
-        
+    end
+
     methods
         function a = activity(this, varargin)
             %% Bq
@@ -105,8 +69,10 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
         end
         function a = activityDensity(this, varargin)
             %% Bq/mL
-            %  @param decayCorrected, default := false.
- 			%  @param datetimeForDecayCorrection updates internal.
+            %  decayCorrected logical = false.
+ 			%  datetimeForDecayCorrection datetime = NaT, updates internal
+            %  index0 double {@isnumeric} = this.index0
+            %  indexF double {@isnumeric} = this.indexF
             
             a = this.activity(varargin{:})/this.visibleVolume;
         end
@@ -133,31 +99,12 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
         end
         function c = countRate(this, varargin)
             %% cps
-            %  @param decayCorrected, default := false.
- 			%  @param datetimeForDecayCorrection updates internal.
+            %  decayCorrected logical = false.
+ 			%  datetimeForDecayCorrection datetime = NaT, updates internal
+            %  index0 double {@isnumeric} = this.index0
+            %  indexF double {@isnumeric} = this.indexF
             
-            ip = inputParser;
-            ip.KeepUnmatched = true;
-            ip.PartialMatching= false;
-            addParameter(ip, 'decayCorrected', false, @islogical)
-            addParameter(ip, 'datetimeForDecayCorrection', NaT, @(x) isnat(x) || isdatetime(x))
-            addParameter(ip, 'index0', this.index0, @isnumeric)
-            addParameter(ip, 'indexF', this.indexF, @isnumeric)
-            parse(ip, varargin{:})
-            ipr = ip.Results;
-            
-            if isdatetime(ipr.datetimeForDecayCorrection) && ...
-                    ~isnat(ipr.datetimeForDecayCorrection)
-                this.datetimeForDecayCorrection = ipr.datetimeForDecayCorrection;
-            end              
-            if ipr.decayCorrected && ~this.decayCorrected
-                this = this.decayCorrect();
-                this.decayCorrected_ = true;
-            end
-            
-            c = asrow(this.tableTwilite_.coincidences);
-            c = c(ipr.index0:ipr.indexF);
-            c = asrow(c);
+            c = this.measurement(varargin{:});
         end
         function this = decayCorrect(this)
             %% removes baselineCountRate from internal representation then decay-corrects
@@ -337,6 +284,39 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
  		end
     end 
     
+    methods (Static)
+        function this = createFromSession(sesd, varargin)
+            this = [];
+            assert(isa(sesd, 'mlpipeline.ISessionData') || isa(sesd, 'mlpipeline.ImagingMediator'))
+            
+            try
+                rm = mlpet.CCIRRadMeasurements.createFromSession(sesd);
+                this = mlswisstrace.TwiliteData( ...
+                    'isotope', sesd.isotope, ...
+                    'tracer', sesd.tracer, ...
+                    'datetimeMeasured', sesd.datetime, ...
+                    'radMeasurements', rm, ...
+                    varargin{:});
+                if contains(lower(sesd.imagingContext.fileprefix), 'phantom')
+                    fn = sprintf('*fdg_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
+                    fqfnCrvs = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite', 'CRV', fn));
+                    this.read(fqfnCrvs{1});
+                else
+                    fn = sprintf('*o15_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
+                    fqfnCrvs = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite', 'CRV', fn));
+                    this.read(fqfnCrvs{1});
+                    this.findBaseline(this.datetimeMeasured);
+                    this.datetimeForDecayCorrection = sesd.datetime;
+                    this.timingData_.datetime0 = sesd.datetime;
+                    this.findBolus(sesd.datetime);
+                    %this.removeBaselineCountRate();
+                end
+            catch ME
+                handwarning(ME)
+            end
+        end
+    end
+    
     %% PROTECTED
     
     properties (Access = protected)
@@ -346,6 +326,38 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
         radMeasurements_
         tableTwilite_
         visibleVolume_
+    end
+
+    methods (Access = protected)
+        function m = measurement(this, varargin)
+            %% cps
+
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            ip.PartialMatching= false;
+            addParameter(ip, 'decayCorrected', false, @islogical)
+            addParameter(ip, 'datetimeForDecayCorrection', NaT, @(x) isdatetime(x))
+            addParameter(ip, 'index0', this.index0, @isnumeric)
+            addParameter(ip, 'indexF', this.indexF, @isnumeric)
+            parse(ip, varargin{:})
+            ipr = ip.Results;
+            
+            if ~isnat(ipr.datetimeForDecayCorrection)
+                this.datetimeForDecayCorrection = ipr.datetimeForDecayCorrection;
+            end              
+            if ipr.decayCorrected && ~this.decayCorrected
+                this.decayCorrect(); % handle
+                this.decayCorrected_ = true;
+            end
+            if ~ipr.decayCorrected && this.decayCorrected
+                this.decayUncorrect(); % handle
+                this.decayCorrected_ = false;
+            end 
+            m = asrow(this.tableTwilite_.coincidences);
+            m = m(ipr.index0:ipr.indexF);
+            m = asrow(m);
+            m = m/this.branchingRatio;
+        end
     end
     
     %% DEPRECATED
