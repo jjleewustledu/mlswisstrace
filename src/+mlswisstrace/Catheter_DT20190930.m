@@ -12,6 +12,8 @@ classdef Catheter_DT20190930 < handle
     end
     
     properties
+        do_close_fig
+        fqfileprefix
         hct
         Measurement
         model_kind
@@ -21,6 +23,7 @@ classdef Catheter_DT20190930 < handle
     end
     
     properties (Dependent)
+        fqfp
         halflife
         radialArteryKit
  		timeInterpolants        
@@ -28,8 +31,15 @@ classdef Catheter_DT20190930 < handle
 
 	methods 
         
-        %% GET
+        %% GET, SET
         
+        function g = get.fqfp(this)
+            g = this.fqfileprefix;
+        end
+        function    set.fqfp(this, s)
+            assert(istext(s))
+            this.fqfileprefix = s;
+        end
         function g = get.halflife(this)
             switch upper(this.tracer)
                 case {'FDG' '18F'}
@@ -144,8 +154,13 @@ classdef Catheter_DT20190930 < handle
                 ral = ral.solve();
                 this.radialArteryLeeCache_ = ral;
             end
-            %plot(ral);
-            %assert(ral.loss() < 0.1, clientname(true, 2))
+            h = ral.plot(varargin{:});
+            if ~isempty(this.fqfp) && ~isemptytext(this.fqfp)
+                saveFigure2(h, this.fqfileprefix, closeFigure=this.do_close_fig)
+            end
+            if ral.loss() > 0.1, clientname(true, 2)
+                warning('mlswisstrace:ValueWarning', stackstr())
+            end
             q = ral.deconvolved() .* 2.^(this.t0/this.halflife); % catheter deconv doesn't know how to shift world-lines                
         end
         function k = kernel(this, varargin)
@@ -197,7 +212,7 @@ classdef Catheter_DT20190930 < handle
             M = this.Measurement;
             k = this.kernel;
             k = k*max(M)/max(k);
-            q = this.deconv(varargin{:});
+            q = this.deconvBayes();
             if ~isempty(ipr.aifKnown)
                 h = plot(t, M, ':o', t, k, '-.', t, q(1:length(t)), ':o', t, ipr.aifKnown, '-');
                 legend({'Measurements' 'kernel' 'deconv' 'aif known'});
@@ -214,8 +229,10 @@ classdef Catheter_DT20190930 < handle
             ip.KeepUnmatched = true;
             addParameter(ip, 'Measurement', [], @isnumeric)
             addParameter(ip, 'hct', 45, @isnumeric)
-            addParameter(ip, 'tracer', [], @(x) ~isempty(x) && ischar(x))
+            addParameter(ip, 'tracer', [], @(x) ~isempty(x) && istext(x))
             addParameter(ip, 'model_kind', '3bolus', @istext)
+            addParameter(ip, 'fqfileprefix', '', @istext)
+            addParameter(ip, 'do_close_fig', false, @islogical)
             parse(ip, varargin{:})
             ipr = ip.Results;
             
@@ -228,8 +245,8 @@ classdef Catheter_DT20190930 < handle
             end
             this.hct = ipr.hct;
             assert(this.hct > 1)
-            this.tracer = ipr.tracer;
-            this.model_kind = ipr.model_kind;
+            this.tracer = convertStringsToChars(ipr.tracer);
+            this.model_kind = convertStringsToChars(ipr.model_kind);
  		end
     end
     
