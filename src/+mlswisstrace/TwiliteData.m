@@ -92,12 +92,16 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
         
         %%
         
+    methods
         function a = activity(this, varargin)
             %% Bq
-            %  @param decayCorrected, default := false.
- 			%  @param datetimeForDecayCorrection updates internal.
+            %  decayCorrected logical = false.
+ 			%  datetimeForDecayCorrection datetime = NaT, updates internal
+            %  index0 double {@isnumeric} = this.index0
+            %  indexF double {@isnumeric} = this.indexF
             
             a = this.activityOverCountRate_*this.countRate(varargin{:});
+            a = a/this.branchingRatio;
         end
         function a = activityDensity(this, varargin)
             %% Bq/mL
