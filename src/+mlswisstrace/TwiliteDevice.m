@@ -37,23 +37,46 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
                 hct = str2double(hct);
             end
             if isa(sesd, 'mlnipet.SessionData')
-                t0_forced = sesd.t0_forced;
+                cal = mlswisstrace.TwiliteCalibration.createFromSession( ...
+                    mlswisstrace.TwiliteDevice.findCalibrationSession(sesd, varargin{:}));
+                this = mlswisstrace.TwiliteDevice( ...
+                    'calibration', cal, ...
+                    'data', data, ...
+                    'hct', hct, ...
+                    't0_forced', sesd.t0_forced);
             else
-                t0_forced = [];
+                cal = mlswisstrace.TwiliteCalibration.createFromSession( ...
+                    mlswisstrace.TwiliteDevice.findCalibrationSession(sesd, varargin{:}));
+                fqfp = sprintf('%s_%s', sesd.imagingContext.fqfp, stackstr());
+                this = mlswisstrace.TwiliteDevice( ...
+                    'calibration', cal, ...
+                    'data', data, ...
+                    'hct', hct, ...
+                    'fqfileprefix', fqfp, ...
+                    'do_close_fig', true);
             end
-            cal = mlswisstrace.TwiliteCalibration.createFromSession( ...
-                mlswisstrace.TwiliteDevice.findCalibrationSession(sesd, varargin{:}));
-            this = mlswisstrace.TwiliteDevice( ...
-                'calibration', cal, ...
-                'data', data, ...
-                'hct', hct, ...
-                't0_forced', t0_forced);
             
             if max(this.countRate) < 10*std(this.baselineCountRate) + mean(this.baselineCountRate)
                 error('mlswisstrace:ValueError', ...
                     'TwiliteDevice.createFromSession:  mean(countRate) ~ %g but mean(baseline) ~ %g.', ...
                     mean(this.countRate), mean(this.baselineCountRate))
             end
+        end
+        function sesd = findCalibrationSession(sesd0, varargin)
+            %% assumed calibration is performed at end of session
+
+            if isa(sesd0, 'mlnipet.SessionData')
+                scanfold = globFoldersT(fullfile(sesd0.sessionPath, 'FDG_DT*-Converted-AC'));
+                sesd = sesd0.create(fullfile(sesd0.projectFolder, sesd0.sessionFolder, mybasename(scanfold{end})));
+                return
+            end
+            if isa(sesd0, 'mlpipeline.ImagingMediator')
+                scans = glob(fullfile(sesd0.scanPath, '*trc-fdg_proc-static-phantom*_pet.nii.gz'))';
+                assert(~isempty(scans), stackstr())
+                sesd = sesd0.create(scans{end}); 
+                return
+            end
+            error('mlpet:RuntimeError', stackstr())
         end
         function ie = invEfficiencyf(sesd)
             this =  mlswisstrace.TwiliteDevice.createFromSession(sesd);
@@ -142,9 +165,11 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
                 return
             end
             this.catheter_.Measurement = this.data_.activity(varargin{:});
-            a_ = this.catheter_.deconvBayes('t0_forced', this.t0_forced, varargin{:});
+            a_ = this.catheter_.deconvBayes( ...
+                't0_forced', this.t0_forced, ...
+                varargin{:});
             a = this.invEfficiency_*a_;
-            a = this.blood2plasma(a, 1:length(a), this.hct);
+            a = this.wb2plasma(a, this.hct, 0:length(a)-1); % applies only to FDG
         end
         function a = activityDensity(this, varargin)
             %% is calibrated to ref-source and catheter-adjusted; Bq/mL
