@@ -64,6 +64,7 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
         end
         function h = plot_dc(this, varargin)
             ip = inputParser;
+            ip.KeepUnmatched = true;
             addParameter(ip, 'showKernel', true, @islogical)
             addParameter(ip, 'xlim', [-10 200], @isnumeric)
             addParameter(ip, 'ylim', [], @isnumeric)
@@ -95,26 +96,31 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
                 leg_kern = 'kernel';
             end
             if ipr.showKernel
-                plot(times, M, 'o', ...
-                    times, samp, ':', ...
-                    times, deconvolved, '-', ...
-                    times, this.zoom*this.kernel, '--', 'LineWidth', 2)
-                legend({'measured', 'estimated', 'deconvolved', leg_kern})
+                hold('on')
+                plot(times, M, 'o', 'MarkerEdgeColor', "#0072BD")
+                plot(times, samp, '--', 'Color', "#A2142F", 'LineWidth', 2)
+                plot(times, deconvolved, '-', 'Color', "#0072BD", 'LineWidth', 2)
+                plot(times, this.zoom*this.kernel, '--', 'Color', "#EDB120", 'LineWidth', 2)
+                legend({'measured', 'estimated', 'deconvolved', leg_kern}, 'FontSize', 12)
+                hold('off')
             else
-                plot(times, M, 'o', ...
-                    times, samp, ':', ...
-                    times, deconvolved, '-', 'LineWidth', 2)
-                legend({'measured', 'estimated', 'deconvolved', leg_kern}, 'FontSize', 10)
+                hold('on')
+                plot(times, M, 'o', 'MarkerEdgeColor', "#0072BD")
+                plot(times, samp, '--', 'Color', "#A2142F", 'LineWidth', 2)
+                plot(times, deconvolved, '-', 'Color', "#0072BD", 'LineWidth', 2)
+                legend({'measured', 'estimated', 'deconvolved'}, 'FontSize', 12)
+                hold('off')
             end
             if ~isempty(ipr.xlim); xlim(ipr.xlim); end
             if ~isempty(ipr.ylim); ylim(ipr.ylim); end
-            xlabel('times / s')
-            ylabel('activity / (Bq/mL)')
+            xlabel('times / s', FontSize=14, FontWeight='bold')
+            ylabel('activity / (Bq/mL)', FontSize=14, FontWeight='bold')
             annotation('textbox', [.25 .5 .5 .2], 'String', sprintfModel(this), 'FitBoxToText', 'on', 'FontSize', 10, 'LineStyle', 'none')
             title([clientname(false, 2) ' DECAY-CORRECTED for ' this.tracer], 'Interpreter', 'none')
         end
         function h = plot(this, varargin)
             ip = inputParser;
+            ip.KeepUnmatched = true;
             addParameter(ip, 'showKernel', true, @islogical)
             addParameter(ip, 'xlim', [-10 200], @isnumeric)
             addParameter(ip, 'ylim', [], @isnumeric)
@@ -140,23 +146,27 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
                 leg_kern = 'kernel';
             end
             if ipr.showKernel
-                plot(times, M, 'o', ...
-                    times, samp, ':', ...
-                    times, deconvolved, '-', ...
-                    times, this.zoom*this.kernel, '--', 'LineWidth', 2)
-                legend({'measured', 'estimated', 'deconvolved', leg_kern})
+                hold('on')
+                plot(times, M, 'o', 'MarkerEdgeColor', "#0072BD")
+                plot(times, samp, '--', 'Color', "#A2142F", 'LineWidth', 2)
+                plot(times, deconvolved, '-', 'Color', "#0072BD", 'LineWidth', 2)
+                plot(times, this.zoom*this.kernel, '--', 'Color', "#EDB120", 'LineWidth', 2)
+                legend({'measured', 'estimated', 'deconvolved', leg_kern}, 'FontSize', 12)
+                hold('off')
             else
-                plot(times, M, 'o', ...
-                    times, samp, ':', ...
-                    times, deconvolved, '-', 'LineWidth', 2)
-                legend({'measured', 'estimated', 'deconvolved', leg_kern}, 'FontSize', 10)
+                hold('on')
+                plot(times, M, 'o', 'MarkerEdgeColor', "#0072BD")
+                plot(times, samp, '--', 'Color', "#A2142F", 'LineWidth', 2)
+                plot(times, deconvolved, '-', 'Color', "#0072BD", 'LineWidth', 2)
+                legend({'measured', 'estimated', 'deconvolved'}, 'FontSize', 12)
+                hold('off')
             end
             if ~isempty(ipr.xlim); xlim(ipr.xlim); end
             if ~isempty(ipr.ylim); ylim(ipr.ylim); end
-            xlabel('times / s')
-            ylabel('activity / (Bq/mL)')
+            xlabel('times / s', FontSize=14, FontWeight='bold')
+            ylabel('activity / (Bq/mL)', FontSize=14, FontWeight='bold')
             annotation('textbox', [.25 .5 .3 .3], 'String', sprintfModel(this), 'FitBoxToText', 'on', 'FontSize', 10, 'LineStyle', 'none')
-            title(clientname(false, 2))
+            title(clientname(false, 2), FontSize=14)
         end
         function save(this)
             save([this.fileprefix '.mat'], this);
