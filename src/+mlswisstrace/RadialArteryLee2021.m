@@ -57,12 +57,19 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
             
             this.strategy_ = solve(this.strategy_, @mlswisstrace.RadialArteryLee2021Model.loss_function);
         end
-        function writetable(this)
-            rho_Bq_mL = this.deconvolved()';
+        function writetable(this, fqfileprefix, opts)
+            arguments
+                this mlswisstrace.RadialArteryLee2021
+                fqfileprefix {mustBeTextScalar} = this.fqfileprefix
+                opts.scaling double = 1
+            end
+
+            this.fqfileprefix = fqfileprefix;
+            rho_Bq_mL = opts.scaling*this.deconvolved()';
             N = length(rho_Bq_mL);
             times_sec = (0:N-1)';
             T = table(times_sec, rho_Bq_mL);
-            writetable(T, strcat(this.fqfileprefix, '-deconvolved.csv'));
+            writetable(T, this.fqfileprefix+stackstr(3)+".csv");
         end
 		  
  		function this = RadialArteryLee2021(varargin)

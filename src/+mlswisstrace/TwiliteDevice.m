@@ -15,11 +15,10 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         deconvCatheter
         do_close_fig
         Dt
-        fqfileprefix
+        % fqfileprefix
         hct
         invEfficiency
         radialArteryKit
-        timeCliff
         t0_forced
  	end
     
@@ -120,13 +119,13 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
             assert(isscalar(s))
             this.Dt_ = s;
         end
-        function g = get.fqfileprefix(this)
-            g = this.catheter_.fqfileprefix;
-        end
-        function     set.fqfileprefix(this, s)
-            assert(istext(x))
-            this.catheter_.fqfileprefix = s;
-        end
+        % function g = get.fqfileprefix(this)
+        %     g = this.catheter_.fqfileprefix;
+        % end
+        % function     set.fqfileprefix(this, s)
+        %     assert(istext(x))
+        %     this.catheter_.fqfileprefix = s;
+        % end
         function g = get.hct(this)
             g = this.catheter_.hct;
         end
@@ -135,13 +134,6 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         end
         function g = get.radialArteryKit(this)
             g = this.catheter_.radialArteryKit;
-        end
-        function g = get.timeCliff(this)
-            g = this.timeCliff_;
-        end
-        function     set.timeCliff(this, s)
-            assert(isscalar(s))
-            this.timeCliff_ = s;
         end
         function g = get.t0_forced(this)
             g = this.t0_forced_;
@@ -164,12 +156,17 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
                 a = this.invEfficiency_*a_;
                 return
             end
+            % if ~isempty(this.activityCached_)
+            %     a = this.activityCached_;
+            %     return
+            % end
             this.catheter_.Measurement = this.data_.activity(varargin{:});
             a_ = this.catheter_.deconvBayes( ...
                 't0_forced', this.t0_forced, ...
                 varargin{:});
             a = this.invEfficiency_*a_;
-            a = this.wb2plasma(a, this.hct, 0:length(a)-1); % applies only to FDG
+            %a = this.wb2plasma(a, this.hct, 0:length(a)-1); % applies only to FDG
+            this.activityCached_ = a;
         end
         function a = activityDensity(this, varargin)
             %% is calibrated to ref-source and catheter-adjusted; Bq/mL
@@ -190,6 +187,9 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
             
             c = this.data_.countRate(varargin{:});
         end
+        function plot_deconv(this, varargin)
+            this.catheter_.plot_deconv(varargin{:});
+        end
         function h = plotall(this, varargin)
             %% PLOTALL
             
@@ -204,11 +204,11 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
     %% PROTECTED
     
     properties (Access = protected)
+        activityCached_ %% MUST reset to empty if TwiliteData objects change
         catheter_
         deconvCatheter_
         Dt_
         invEfficiency_
-        timeCliff_
         t0_forced_
     end
     
@@ -220,10 +220,9 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
             addParameter(ip, 'hct', 45, @isnumeric);
             addParameter(ip, 'deconvCatheter', true, @islogical);
             addParameter(ip, 't0_forced', [], @isnumeric);
-            addParameter(ip, 'timeCliff', @isscalar)
-            addParameter(ip, 'fqfileprefix', '', @istext)
-            addParameter(ip, 'do_close_fig', false, @islogical)
-            parse(ip, varargin{:})
+            addParameter(ip, 'fqfileprefix', '', @istext);
+            addParameter(ip, 'do_close_fig', false, @islogical);
+            parse(ip, varargin{:});
             ipr = ip.Results;
             
             this.catheter_ = mlswisstrace.Catheter_DT20190930( ...
@@ -233,12 +232,12 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
                 'model_kind', '3bolus', ...
                 'fqfileprefix', ipr.fqfileprefix, ...
                 'do_close_fig', ipr.do_close_fig);
+            this.fqfileprefix = ipr.fqfileprefix;
             this.invEfficiency_ = ...
                 mean(this.calibration_.invEfficiency)* ...
                 mlcapintec.RefSourceCalibration.invEfficiencyf();
             this.deconvCatheter_ = ipr.deconvCatheter;
             this.t0_forced_ = ipr.t0_forced;
-            this.timeCliff_ = ipr.timeCliff;
  		end
     end
     

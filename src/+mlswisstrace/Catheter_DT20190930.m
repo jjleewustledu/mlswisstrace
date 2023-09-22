@@ -36,7 +36,7 @@ classdef Catheter_DT20190930 < handle
         function g = get.fqfp(this)
             g = this.fqfileprefix;
         end
-        function    set.fqfp(this, s)
+        function     set.fqfp(this, s)
             assert(istext(s))
             this.fqfileprefix = s;
         end
@@ -137,31 +137,28 @@ classdef Catheter_DT20190930 < handle
             [q,r] = deconv(M, k);
             q = q(1:length(this.timeInterpolants));
             q(q < 0) = 0;
-            q = q .* 2.^(this.t0/this.halflife); % catheter deconv doesn't know how to shift world-lines
+
+            %% REFACTOR?
+            q = this.scalingWorldline*q;  
         end
         function q = deconvBayes(this, varargin)
             k = this.kernel(varargin{:}); % length(k) >= length(this.Measurement)
             M = asrow(this.Measurement);
-            if ~isempty(this.radialArteryLeeCache_)
-                ral = this.radialArteryLeeCache_;
-            else
-                ral = mlswisstrace.RadialArteryLee2021( ...
-                    'tracer', this.tracer, ...
-                    'kernel', k, ...
-                    'model_kind', this.model_kind, ...
-                    'Measurement', M, ...
-                    varargin{:});
-                ral = ral.solve();
-                this.radialArteryLeeCache_ = ral;
-            end
-            h = ral.plot(varargin{:});
-            if ~isempty(this.fqfp) && ~isemptytext(this.fqfp)
-                saveFigure2(h, this.fqfileprefix, closeFigure=this.do_close_fig)
-            end
+            ral = mlswisstrace.RadialArteryLee2021( ...
+                'tracer', this.tracer, ...
+                'kernel', k, ...
+                'model_kind', this.model_kind, ...
+                'Measurement', M, ...
+                varargin{:});
+            ral = ral.solve();
             if ral.loss() > 0.1, clientname(true, 2)
                 warning('mlswisstrace:ValueWarning', stackstr())
             end
-            q = ral.deconvolved() .* 2.^(this.t0/this.halflife); % catheter deconv doesn't know how to shift world-lines                
+            this.radialArteryLeeCache_ = ral;
+            this.plot_deconv(varargin{:});
+
+            %% REFACTOR?
+            q = this.scalingWorldline*ral.deconvolved();      
         end
         function k = kernel(this, varargin)
             %% including regressions on catheter data of 2019 Sep 30
@@ -200,6 +197,12 @@ classdef Catheter_DT20190930 < handle
                 k = k/sumk;
             end
         end
+        function plot_deconv(this, varargin)
+            h = this.radialArteryKit.plot(varargin{:});
+            if ~isempty(this.fqfp) && ~isemptytext(this.fqfp)
+                saveFigure2(h, this.fqfileprefix, closeFigure=this.do_close_fig)
+            end
+        end
         function h = plotall(this, varargin)
             ip = inputParser;
             ip.KeepUnmatched = true;
@@ -223,7 +226,10 @@ classdef Catheter_DT20190930 < handle
             xlabel('t/s');
             ylabel('activity/ (Bq/mL)');
         end
-		  
+        function f = scalingWorldline(this)
+            f = 2^(this.t0/this.halflife); % catheter deconv doesn't know how to shift world-lines     
+        end
+
  		function this = Catheter_DT20190930(varargin)
             ip = inputParser;
             ip.KeepUnmatched = true;
@@ -247,6 +253,7 @@ classdef Catheter_DT20190930 < handle
             assert(this.hct > 1)
             this.tracer = convertStringsToChars(ipr.tracer);
             this.model_kind = convertStringsToChars(ipr.model_kind);
+            this.fqfileprefix = ipr.fqfileprefix;
  		end
     end
     

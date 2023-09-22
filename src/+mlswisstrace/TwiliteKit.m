@@ -7,12 +7,16 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
     
     methods
         function ic = do_make_activity(this, varargin)
-            do_make_device(this);
+            if isempty(this.device_)
+                do_make_device(this);
+            end
             a = this.device_.activity(varargin{:});
             ic = this.buildImagingContext(a);
         end
         function ic = do_make_activity_density(this, varargin)
-            do_make_device(this);
+            if isempty(this.device_)
+                do_make_device(this);
+            end
             a = this.device_.activityDensity(varargin{:});
             ic = this.buildImagingContext(a);
         end
@@ -83,17 +87,19 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
         end
         function ic = buildImagingContext(this, measurement)
             arguments
-                this mlcapintec.CapracKit
+                this mlswisstrace.TwiliteKit
                 measurement {mustBeNumeric,mustBeNonempty}
             end
 
             med = this.bids_kit_.make_bids_med();
+            idx0 = this.device_.index0;
+            idxF = this.device_.indexF;
             ifc = copy(med.imagingFormat);
             ifc.img = measurement;
             ifc.fileprefix = sprintf("%s_%s", ifc.fileprefix, stackstr(3));
-            ifc.json_metadata.taus = this.device_.taus;
-            ifc.json_metadata.times = this.device_.times;
-            ifc.json_metadata.timesMid = this.device_.timesMid;
+            ifc.json_metadata.taus = this.device_.taus(idx0:idxF);
+            ifc.json_metadata.times = this.device_.times(idx0:idxF) - this.device_.times(idx0);
+            ifc.json_metadata.timesMid = this.device_.timesMid(idx0:idxF) - this.device_.timesMid(idx0);
             ifc.json_metadata.timeUnit = "second";
             this.input_func_ic_ = mlfourd.ImagingContext2(ifc);
             ic = this.input_func_ic_;
