@@ -156,10 +156,10 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
                 a = this.invEfficiency_*a_;
                 return
             end
-            % if ~isempty(this.activityCached_)
-            %     a = this.activityCached_;
-            %     return
-            % end
+            if ~isempty(this.activityCached_)
+                a = this.activityCached_;
+                return
+            end
             this.catheter_.Measurement = this.data_.activity(varargin{:});
             a_ = this.catheter_.deconvBayes( ...
                 't0_forced', this.t0_forced, ...
@@ -238,6 +238,7 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
                 mlcapintec.RefSourceCalibration.invEfficiencyf();
             this.deconvCatheter_ = ipr.deconvCatheter;
             this.t0_forced_ = ipr.t0_forced;
+            this.activityCached_ = [];
  		end
     end
     

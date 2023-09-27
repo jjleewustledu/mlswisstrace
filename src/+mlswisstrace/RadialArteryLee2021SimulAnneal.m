@@ -151,7 +151,7 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
                 plot(times, M, 'o', 'MarkerEdgeColor', "#0072BD")
                 plot(times, samp, '--', 'Color', "#A2142F", 'LineWidth', 2)
                 plot(times, deconvolved, '-', 'Color', "#0072BD", 'LineWidth', 2)
-                plot(times, this.zoom*this.kernel, '--', 'Color', "#EDB120", 'LineWidth', 2)
+                plot(times, this.zoom*this.kernel(1:N), '--', 'Color', "#EDB120", 'LineWidth', 2)
                 legend({'measured', 'estimated', 'deconvolved', leg_kern}, 'FontSize', 12)
                 hold('off')
             else
