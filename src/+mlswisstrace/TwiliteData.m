@@ -274,10 +274,11 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             parse(ip, varargin{:})
             ipr = ip.Results;
             
+            this.decayCorrected_ = false;
+            
             this.pumpRate_ = ipr.pumpRate;
             this.visibleVolume_ = ipr.visibleVolume;
             this.activityOverCountRate_ = ipr.activityOverCountRate;
-            this.decayCorrected_ = false;
             if ~isempty(ipr.radMeasurements)
                 this.radMeasurements_ = ipr.radMeasurements;
             end
@@ -335,7 +336,6 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             ip = inputParser;
             ip.KeepUnmatched = true;
             ip.PartialMatching= false;
-            addParameter(ip, 'decayCorrected', false, @islogical)
             addParameter(ip, 'datetimeForDecayCorrection', NaT, @(x) isdatetime(x))
             addParameter(ip, 'index0', this.index0, @isnumeric)
             addParameter(ip, 'indexF', this.indexF, @isnumeric)
@@ -344,14 +344,6 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             
             if ~isnat(ipr.datetimeForDecayCorrection)
                 this.datetimeForDecayCorrection = ipr.datetimeForDecayCorrection;
-            end              
-            if ipr.decayCorrected && ~this.decayCorrected
-                this.decayCorrect(); % handle
-                this.decayCorrected_ = true;
-            end
-            if ~ipr.decayCorrected && this.decayCorrected
-                this.decayUncorrect(); % handle
-                this.decayCorrected_ = false;
             end 
             m = asrow(this.tableTwilite_.coincidences);
             m = m(ipr.index0:ipr.indexF);
