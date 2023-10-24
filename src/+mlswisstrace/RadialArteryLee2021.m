@@ -43,6 +43,7 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
         end
         function h = plot_dc(this, varargin)
             h = this.strategy_.plot_dc(varargin{:});
+            set(h, position=[100,100,1000,618])
         end
         function rho = sampled(this)
             M0 = max(this.measurement);

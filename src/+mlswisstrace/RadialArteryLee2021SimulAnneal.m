@@ -128,6 +128,9 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
             addParameter(ip, 'scaling', 1, @isnumeric)
             parse(ip, varargin{:})
             ipr = ip.Results;
+            if this.kernel == 1
+                ipr.showKernel = false;
+            end
             this.zoom = ipr.zoom;
             M = this.Measurement * ipr.scaling;
             N = length(M);
