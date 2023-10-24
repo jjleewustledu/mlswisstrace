@@ -38,6 +38,8 @@ classdef RadialArteryLee2021Model
                 rho = (1 - baseline_frac)*soln;
                 return
             end
+
+            % adjust kernel integral as trapz
             conv_sk = conv(soln, kernel);
             max_sk = max(conv_sk(1:N));
             card_kernel = trapz(kernel);
@@ -80,9 +82,9 @@ classdef RadialArteryLee2021Model
             m('k4') = struct('min',  0,     'max',   1,    'init',  0,    'sigma', 0.05); % |dp2| for 2nd bolus
             m('k5') = struct('min',  0,     'max', 120,    'init',  0,    'sigma', 0.05); % t0 in sec
             m('k6') = struct('min',  0.1,   'max',   0.3,  'init',  0.2,  'sigma', 0.05); % steady-state fraction in (0, 1), for rising baseline
-            m('k7') = struct('min',  0.05,  'max',   0.1,  'init',  0.05, 'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
+            m('k7') = struct('min',  0,     'max',   0.1,  'init',  0.05, 'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
             m('k8') = struct('min', 15,     'max',  90,    'init', 30,    'sigma', 0.05); % recirc delay in sec
-            m('k9') = struct('min',  0.05,  'max',   0.5,  'init',  0.05, 'sigma', 0.05); % baseline amplitude fraction \approx 0.05
+            m('k9') = struct('min',  0,     'max',   0.5,  'init',  0,    'sigma', 0.05); % baseline amplitude fraction \approx 0.05
         end    
         function qs = sampled(ks, N, kernel, tracer, model_kind)
             %% @return the Bayesian estimate of the measured AIF, including baseline, scaled to unity.
@@ -90,6 +92,15 @@ classdef RadialArteryLee2021Model
             baseline_frac = ks(9);
             scale_frac = 1 - baseline_frac;
             
+            if kernel == 1
+                W = 10;
+                qs = mlswisstrace.RadialArteryLee2021Model.solution(ks, N+W-1, tracer, model_kind);
+                qs = mlswisstrace.RadialArteryLee2021Model.move_window(qs, W=W);
+                qs = qs/max(qs); % \in [0 1]
+                qs = scale_frac*qs + baseline_frac; % \in [0 1]
+                return
+            end
+
             qs = mlswisstrace.RadialArteryLee2021Model.solution(ks, N, tracer, model_kind);
             if kernel ~= 1
                 qs = conv(qs, kernel);
@@ -97,6 +108,7 @@ classdef RadialArteryLee2021Model
             qs = qs(1:N);
             qs = qs/max(qs); % \in [0 1] 
             qs = scale_frac*qs + baseline_frac; % \in [0 1]   
+                
         end
         function qs = solution(ks, N, tracer, model_kind)
             %% @return the idealized true AIF without baseline, scaled to unity.
@@ -191,6 +203,19 @@ classdef RadialArteryLee2021Model
             end
             T = false; 
         end    
+        function qs = move_window(qs, opts)
+            arguments
+                qs double
+                opts.W double
+            end
+            
+            P = length(qs)-opts.W+1;
+            N = P/opts.W;
+            P1 = P + opts.W - 1;
+            L = tril(ones(P,P1), opts.W-1) - tril(ones(P,P1), -1);
+            L = L/opts.W;
+            qs = asrow(L*ascol(qs));
+        end
         function conc = slide(conc, t, Dt)
             %% SLIDE slides discretized function conc(t) to conc(t - Dt);
             %  Dt > 0 will slide conc(t) towards later times t.
@@ -231,16 +256,16 @@ classdef RadialArteryLee2021Model
             ip = inputParser;
             ip.PartialMatching = false;
             ip.KeepUnmatched = true;
-            addParameter(ip, 'tracer', [], @ischar)
-            addParameter(ip, 'model_kind', [], @ischar)
+            addParameter(ip, 'tracer', [], @istext)
+            addParameter(ip, 'model_kind', [], @istext)
             addParameter(ip, 'map', preferredMap(), @(x) isa(x, 'containers.Map'))
             addParameter(ip, 'kernel', 1, @isnumeric)
             addParameter(ip, 't0_forced', [], @isnumeric)
             addParameter(ip, 'times_sampled', [], @isnumeric)
             parse(ip, varargin{:})
             ipr = ip.Results;
-            this.tracer = upper(ipr.tracer);
-            this.model_kind = ipr.model_kind;
+            this.tracer = convertStringsToChars(upper(ipr.tracer));
+            this.model_kind = convertStringsToChars(ipr.model_kind);
             this.map = ipr.map;
             this.t0_forced = ipr.t0_forced;
             this = this.adjustMapForTracer();
@@ -276,13 +301,12 @@ classdef RadialArteryLee2021Model
         function this = adjustMapForTracer(this)
             switch upper(this.tracer)
                 case {'FDG' '18F'}
-
                     this.map('k5') = struct('min',  0,    'max',  30,    'init',  0,    'sigma', 0.05); % t0 in sec   
                     this.map('k6') = struct('min', 0.05,  'max',   0.5,  'init',  0.05, 'sigma', 0.05); % steady-state fraction in (0, 1)  
                     this.map('k7') = struct('min', 0.05,  'max',   0.25, 'init',  0.05, 'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
                     this.map('k8') = struct('min', 5,     'max',  20,    'init', 10,    'sigma', 0.05); % recirc delay in sec
                 case {'HO' 'OH'}
-                    this.map('k9') = struct('min',  0.05, 'max',   0.25, 'init',  0.05, 'sigma', 0.05); % baseline amplitude fraction \approx 0.05
+%                    this.map('k9') = struct('min',  0.05, 'max',   0.25, 'init',  0.05, 'sigma', 0.05); % baseline amplitude fraction \approx 0.05
                 case {'CO' 'OC'}  
                     this.map('k1') = struct('min',  0.1,  'max',  10,    'init',  0.25, 'sigma', 0.05); % alpha
                     this.map('k2') = struct('min', 10,    'max',  25,    'init', 15,    'sigma', 0.05); % beta
@@ -292,16 +316,17 @@ classdef RadialArteryLee2021Model
                     this.map('k6') = struct('min',  0.05, 'max',   0.5,  'init',  0.05, 'sigma', 0.05); % steady-state fraction in (0, 1)      
 
                     this.map('k8') = struct('min', 30,    'max', 120,    'init', 60,    'sigma', 0.05); % recirc delay in sec
-                    this.map('k9') = struct('min',  0.02, 'max',   0.5,  'init',  0.1,  'sigma', 0.05); % baseline amplitude fraction \approx 0.05
+%                    this.map('k9') = struct('min',  0.02, 'max',   0.5,  'init',  0.1,  'sigma', 0.05); % baseline amplitude fraction \approx 0.05
                 case 'OO'
                     % allow double inhalation
                     this.map('k1') = struct('min', 1,     'max',   5,    'init',  1,    'sigma', 0.05); % alpha
                     this.map('k2') = struct('min', 0.1,   'max',  25,    'init',  0.1,  'sigma', 0.05); % beta
+
                     this.map('k5') = struct('min', 5,     'max',  30,    'init',  0,    'sigma', 0.05); % t0 in sec   
 
                     this.map('k7') = struct('min', 0.05,  'max',   0.49, 'init',  0.05, 'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
                     this.map('k8') = struct('min', eps,   'max',  30,    'init', 15,    'sigma', 0.05); % recirc delay in sec
-                    this.map('k9') = struct('min',  0.05, 'max',   0.25, 'init',  0.05, 'sigma', 0.05); % baseline amplitude fraction \approx 0.05
+%                    this.map('k9') = struct('min',  0.05, 'max',   0.25, 'init',  0.05, 'sigma', 0.05); % baseline amplitude fraction \approx 0.05
                 otherwise
                     % noninformative
             end
