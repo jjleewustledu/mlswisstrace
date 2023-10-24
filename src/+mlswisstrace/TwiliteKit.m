@@ -11,20 +11,42 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
                 do_make_device(this);
             end
             a = this.device_.activity(varargin{:});
-            ic = this.buildImagingContext(a);
+            ic = this.do_make_input_func(a);
         end
         function ic = do_make_activity_density(this, varargin)
             if isempty(this.device_)
                 do_make_device(this);
             end
             a = this.device_.activityDensity(varargin{:});
-            ic = this.buildImagingContext(a);
+            ic = this.do_make_input_func(a);
         end
         function dev = do_make_device(this, varargin)
             this.device_ = this.buildArterialSamplingDevice(varargin{:});
             %fqfp = sprintf("%s_%s", this.bids_kit_.make_bids_med.imagingContext.fqfp, stackstr());
             %saveFigure2(gcf, fqfp, closeFigure=false);
             dev = this.device_;
+        end
+        function ic = do_make_input_func(this, measurement)
+            arguments
+                this mlswisstrace.TwiliteKit
+                measurement {mustBeNumeric,mustBeNonempty}
+            end
+
+            if isempty(this.device_)
+                do_make_device(this);
+            end
+            med = this.bids_kit_.make_bids_med();
+            idx0 = this.device_.index0;
+            idxF = this.device_.indexF;
+            ifc = copy(med.imagingFormat);
+            ifc.img = measurement;
+            ifc.fileprefix = sprintf("%s_%s", ifc.fileprefix, stackstr(3));
+            ifc.json_metadata.taus = this.device_.taus(idx0:idxF);
+            ifc.json_metadata.times = this.device_.times(idx0:idxF) - this.device_.times(idx0);
+            ifc.json_metadata.timesMid = this.device_.timesMid(idx0:idxF) - this.device_.timesMid(idx0);
+            ifc.json_metadata.timeUnit = "second";
+            this.input_func_ic_ = mlfourd.ImagingContext2(ifc);
+            ic = this.input_func_ic_;
         end
     end
 
@@ -84,25 +106,6 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
                     scanner_dev.timeWindow, input_func_dev.timeWindow)
                 %this.inspectTwiliteCliff(arterialDev, scannerDev, ipr.indexCliff);
             end
-        end
-        function ic = buildImagingContext(this, measurement)
-            arguments
-                this mlswisstrace.TwiliteKit
-                measurement {mustBeNumeric,mustBeNonempty}
-            end
-
-            med = this.bids_kit_.make_bids_med();
-            idx0 = this.device_.index0;
-            idxF = this.device_.indexF;
-            ifc = copy(med.imagingFormat);
-            ifc.img = measurement;
-            ifc.fileprefix = sprintf("%s_%s", ifc.fileprefix, stackstr(3));
-            ifc.json_metadata.taus = this.device_.taus(idx0:idxF);
-            ifc.json_metadata.times = this.device_.times(idx0:idxF) - this.device_.times(idx0);
-            ifc.json_metadata.timesMid = this.device_.timesMid(idx0:idxF) - this.device_.timesMid(idx0);
-            ifc.json_metadata.timeUnit = "second";
-            this.input_func_ic_ = mlfourd.ImagingContext2(ifc);
-            ic = this.input_func_ic_;
         end
         function this = TwiliteKit()
         end
