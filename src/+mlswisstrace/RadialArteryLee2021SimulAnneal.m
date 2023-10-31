@@ -114,7 +114,7 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
             if ~isempty(ipr.xlim); xlim(ipr.xlim); end
             if ~isempty(ipr.ylim); ylim(ipr.ylim); end
             xlabel('times / s', FontSize=14, FontWeight='bold')
-            ylabel('activity / (Bq/mL)', FontSize=14, FontWeight='bold')
+            ylabel('activity / Bq', FontSize=14, FontWeight='bold')
             annotation('textbox', [.25 .5 .5 .2], 'String', sprintfModel(this), 'FitBoxToText', 'on', 'FontSize', 10, 'LineStyle', 'none')
             title([clientname(false, 2) ' DECAY-CORRECTED for ' this.tracer], 'Interpreter', 'none')
         end
@@ -168,7 +168,7 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
             if ~isempty(ipr.xlim); xlim(ipr.xlim); end
             if ~isempty(ipr.ylim); ylim(ipr.ylim); end
             xlabel('times / s', FontSize=14, FontWeight='bold')
-            ylabel('activity / cps', FontSize=14, FontWeight='bold')
+            ylabel('activity / Bq', FontSize=14, FontWeight='bold')
             annotation('textbox', [.25 .5 .3 .3], 'String', sprintfModel(this), 'FitBoxToText', 'on', 'FontSize', 10, 'LineStyle', 'none')
             title(clientname(false, 2), FontSize=14)
         end
