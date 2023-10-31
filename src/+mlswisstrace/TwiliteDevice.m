@@ -70,7 +70,7 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
                 return
             end
             if isa(sesd0, 'mlpipeline.ImagingMediator')
-                scans = glob(fullfile(sesd0.scanPath, '*trc-fdg_proc-static-phantom*_pet.nii.gz'))';
+                scans = glob(fullfile(sesd0.subjectPath, '**', '*trc-fdg_proc-static-phantom*_pet.nii.gz'))';
                 assert(~isempty(scans), stackstr())
                 sesd = sesd0.create(scans{end}); 
                 return
