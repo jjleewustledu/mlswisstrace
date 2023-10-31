@@ -5,6 +5,19 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
     %  Created 09-Jun-2022 14:17:52 by jjlee in repository /Users/jjlee/MATLAB-Drive/mlswisstrace/src/+mlswisstrace.
     %  Developed on Matlab 9.12.0.1956245 (R2022a) Update 2 for MACI64.  Copyright 2022 John J. Lee.
     
+    properties (Dependent)
+        decayCorrected % false for 15O
+    end    
+
+    methods %% GET
+        function g = get.decayCorrected(this)
+            if isempty(this.device_)
+                do_make_device(this);
+            end
+            g = this.device_.decayCorrected;
+        end
+    end
+
     methods
         function ic = do_make_activity(this, varargin)
             if isempty(this.device_)
@@ -31,6 +44,12 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
                 this mlswisstrace.TwiliteKit
                 measurement {mustBeNumeric,mustBeNonempty}
             end
+
+            %% allow for revisions to device|data, such as decay-correction
+            %if ~isempty(this.input_func_ic_)
+            %    ic = this.input_func_ic_;
+            %    return
+            %end
 
             if isempty(this.device_)
                 do_make_device(this);
