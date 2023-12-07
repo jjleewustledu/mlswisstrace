@@ -39,10 +39,11 @@ classdef RadialArteryLee2021Model
                 return
             end
 
-            % adjust kernel integral as trapz
+            % adjust kernel integral as trapz; rescale soln informed by losses from convolutions
             conv_sk = conv(soln, kernel);
             max_sk = max(conv_sk(1:N));
             card_kernel = trapz(kernel);
+            %rho = (1 - baseline_frac)*card_kernel*soln; % produces deconvolutions too small by factor of 0.5
             rho = (1 - baseline_frac)*(card_kernel/max_sk)*soln; 
         end
         function tau = halflife(tracer)
