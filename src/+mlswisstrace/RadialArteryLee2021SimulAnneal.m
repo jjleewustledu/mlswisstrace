@@ -60,7 +60,7 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
             end
         end
         function Q = loss(this)
-            Q = this.results_.sse;
+            Q = this.product_.loss;
         end
         function h = plot_dc(this, varargin)
             ip = inputParser;
@@ -152,8 +152,8 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
             if ipr.showKernel
                 hold('on')
                 plot(times, M, 'o', 'MarkerEdgeColor', "#0072BD")
-                plot(times, samp, '--', 'Color', "#A2142F", 'LineWidth', 2)
-                plot(times, deconvolved, '-', 'Color', "#0072BD", 'LineWidth', 2)
+                plot(times, samp, '--', 'Color', "#0072BD", 'LineWidth', 2)
+                plot(times, deconvolved, '-', 'Color', "#A2142F", 'LineWidth', 2)
                 plot(times, this.zoom*this.kernel(1:N), '--', 'Color', "#EDB120", 'LineWidth', 2)
                 legend({'measured', 'estimated', 'deconvolved', leg_kern}, 'FontSize', 12)
                 hold('off')
@@ -212,12 +212,12 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
                     'ReannealInterval', 200, ...
                     'TemperatureFcn', 'temperatureexp');
             end
- 			[ks_,sse,exitflag,output] = simulannealbnd( ...
+ 			[ks_,loss,exitflag,output] = simulannealbnd( ...
                 @(ks__) ipr.loss_function( ...
                        ks__, this.kernel, this.tracer, this.model_kind, double(this.Measurement)), ...
                 this.ks0, this.ks_lower, this.ks_upper, options); 
             
-            this.results_ = struct('ks0', this.ks0, 'ks', ks_, 'sse', sse, 'exitflag', exitflag, 'output', output); 
+            this.product_ = struct('ks0', this.ks0, 'ks', ks_, 'loss', loss, 'exitflag', exitflag, 'output', output); 
             if ~this.quiet
                 fprintfModel(this)
             end
