@@ -103,7 +103,7 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
                 opts.sameWorldline logical = false
                 opts.indexCliff double = []
                 opts.fqfileprefix {mustBeTextScalar} = ""
-                opts.do_close_fig logical = true;
+                opts.do_close_fig logical = false;
             end
             med = this.bids_kit_.make_bids_med();
             scanner_dev = this.scanner_kit_.do_make_device();
