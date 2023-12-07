@@ -24,10 +24,10 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
     
     methods (Static)
         function this = createFromSession(sesd, varargin)
-            data = mlswisstrace.TwiliteData.createFromSession(sesd, varargin{:});
+            rm = mlpet.CCIRRadMeasurements.createFromSession(sesd, varargin{:});
+            data = mlswisstrace.TwiliteData.createFromSession(sesd, 'visibleVolume', rm.twilite.VISIBLEVolume_ML, varargin{:});
             Dt = 2*ceil(mlswisstrace.Catheter_DT20190930.t0); % provide room for delay corrections
             data.time0 = max(data.time0 - Dt, 0);
-            rm = mlpet.CCIRRadMeasurements.createFromSession(sesd, varargin{:});
             hct = rm.laboratory{'Hct',1};
             if iscell(hct)
                 hct = hct{1};
