@@ -9,8 +9,10 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
  	%% It was developed on Matlab 9.9.0.1592791 (R2020b) Update 5 for MACI64.  Copyright 2021 John Joowon Lee.
  	
 	properties  
+        Data
         measurement % expose for performance when used strategies for solve
         model       %
+        Nensemble = 20
     end
 
     properties (Dependent)
@@ -54,9 +56,30 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
             error('mlswisstrace:notImplementedError', 'RadialArteryLee2021.sampled')
         end
         function this = solve(this, varargin)
-            %% @param required loss_function is function_handle.
-            
-            this.strategy_ = solve(this.strategy_, @mlswisstrace.RadialArteryLee2021Model.loss_function);
+            %% @param required loss_function is function_handle.            
+
+
+
+            solved = cell(this.Nensemble, 1);
+            losses = NaN(this.Nensemble, 1);
+            for idx = 1:this.Nensemble
+                tic
+
+                % find lowest loss in the ensemble
+                solved{idx} = this.strategy_.solve(@mlswisstrace.RadialArteryLee2021Model.loss_function);
+                losses(idx) = solved{idx}.product.loss;
+
+                toc
+            end
+
+            % find best loss in solved
+            T = table(solved, losses);
+            T = sortrows(T, "losses", "ascend");
+            this.strategy_ = T{1, "solved"}{1};
+
+
+
+            %this.strategy_ = solve(this.strategy_, @mlswisstrace.RadialArteryLee2021Model.loss_function);
         end
         function writetable(this, fqfileprefix, opts)
             arguments
