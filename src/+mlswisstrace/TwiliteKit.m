@@ -71,15 +71,17 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
 
     methods (Static)
         function this = instance(varargin)
-            persistent uniqueInstance
-            if isempty(uniqueInstance)
-                this = mlswisstrace.TwiliteKit();
-                this.install_input_func(varargin{:})
-                uniqueInstance = this;
-            else
-                this = uniqueInstance;
-                this.install_input_func(varargin{:})
-            end
+            this = mlswisstrace.TwiliteKit();
+            this.install_input_func(varargin{:})
+            % persistent uniqueInstance
+            % if isempty(uniqueInstance)
+            %     this = mlswisstrace.TwiliteKit();
+            %     this.install_input_func(varargin{:})
+            %     uniqueInstance = this;
+            % else
+            %     this = uniqueInstance;
+            %     this.install_input_func(varargin{:})
+            % end
         end
     end 
 
