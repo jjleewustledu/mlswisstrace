@@ -32,10 +32,10 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
             g = this.model.kernel;
         end
         function g = get.ks(this)
-            g = this.results_.ks;
+            g = this.product_.ks;
         end
         function g = get.ks_names(this)
-            g = this.model.knames;
+            g = this.model.ks_names;
         end
         function g = get.model_kind(this)
             g = this.model.model_kind;

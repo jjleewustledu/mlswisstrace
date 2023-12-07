@@ -95,7 +95,7 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
         function test_solution_1bolus(this)	
  			import mlswisstrace.*;
             Nk = 5;
-            ks_names = RadialArteryLee2021Model.knames(1:Nk);
+            ks_names = RadialArteryLee2021Model.ks_names(1:Nk);
             ks_init = [0.5 0.1 1 0 0];
             ks_combinations = [ 0.1 0.5 1 2 ; ...
                                 0.05 0.1 0.2 0.4; ...
@@ -122,7 +122,7 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
         function test_solution_2bolus(this)	
  			import mlswisstrace.*;
             Nk = 6;
-            ks_names = RadialArteryLee2021Model.knames(1:Nk);
+            ks_names = RadialArteryLee2021Model.ks_names(1:Nk);
             ks_init = [0.5 0.1 1 0 0 0.25];
             ks_combinations = [ 0.1 0.5 1 2 ; ...
                                 0.05 0.1 0.2 0.4; ...
@@ -150,7 +150,7 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
         function test_solution_2bolus_ecat(this)
  			import mlswisstrace.*;
             Nk = 6;
-            ks_names = RadialArteryLee2021Model.knames(1:Nk);
+            ks_names = RadialArteryLee2021Model.ks_names(1:Nk);
             ks_init = [2.5  0.05  1.25  0  0  0.95];
             ks_combinations = [ 0.25    0.5    1     2      3; ...
                                 0.05    0.1    0.2   0.3    0.4; ...
@@ -178,7 +178,7 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
         function test_solution_3bolus(this)	
  			import mlswisstrace.*;
             Nk = 8;
-            ks_names = RadialArteryLee2021Model.knames(1:Nk);
+            ks_names = RadialArteryLee2021Model.ks_names(1:Nk);
             ks_init = [0.5 0.2 1 0 0 0.25 0.1 0.1];
             ks_combinations = [ 0.1 0.5 1 2 ; ...
                                 0.05 0.1 0.2 0.4; ...
@@ -208,7 +208,7 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
         function test_solution_CO(this)	
  			import mlswisstrace.*;
             Nk = 8;
-            ks_names = RadialArteryLee2021Model.knames(1:Nk);
+            ks_names = RadialArteryLee2021Model.ks_names(1:Nk);
             ks_init = [0.05 10 0.4 3 0 0.1 0.05 0.25 0.1];
             ks_combinations = [ 0.05 0.5 1 2; ...
                                 1 5 10 20; ...
@@ -238,7 +238,7 @@ classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
         function test_sampled(this)
  			import mlswisstrace.*;
             Nk = 8;
-            ks_names = RadialArteryLee2021Model.knames(1:Nk);
+            ks_names = RadialArteryLee2021Model.ks_names(1:Nk);
             ks_init = [0.05 0.15 1.8 0.008 0 0.1 0.1 0.15 0.1];
             ks_combinations = [ 0.005 0.1 1 5; ...
                                 0.01 0.1 0.5 1; ...
