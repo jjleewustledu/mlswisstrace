@@ -10,6 +10,7 @@ classdef CrvData < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
 	properties
         count_density_to_activity_density = 1 % 1/efficiency
         filename
+        halflife = 109.77*60
  		XLabel = 'datetime' % 'duration', 'seconds', otherwise 'datetime'
     end
 
@@ -47,6 +48,20 @@ classdef CrvData < handle & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
         end
 
         %%
+
+        function [m,s] = build_baseline(this, indices)
+            m = mean(this.coincidence(indices));
+            s = std(this.coincidence(indices));
+        end
+        function [m,s] = build_cal_counts(this, indices)
+            %% decay-corrects over interval of indices
+            
+            c = this.coincidence(indices); % col
+            t = ascol(0:(indices(end)-indices(1)));
+            c = c.*2.^(t/this.halflife); % decay-correct to start of twilite observation
+            m = mean(c);
+            s = std(c);
+        end
 
         function dt = dateTag(this)
             startTime = this.crvTimetable.Properties.StartTime;
