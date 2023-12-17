@@ -115,8 +115,9 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
             if ~isempty(ipr.ylim); ylim(ipr.ylim); end
             xlabel('times / s', FontSize=14, FontWeight='bold')
             ylabel('activity / Bq', FontSize=14, FontWeight='bold')
-            annotation('textbox', [.25 .5 .5 .2], 'String', sprintfModel(this), 'FitBoxToText', 'on', 'FontSize', 10, 'LineStyle', 'none')
+            annotation('textbox', [.5 .5 .3 .3], 'String', sprintfModel(this), 'FitBoxToText', 'on', 'FontSize', 10, 'LineStyle', 'none')
             title([clientname(false, 2) ' DECAY-CORRECTED for ' this.tracer], 'Interpreter', 'none')
+            set(h, position=[100,100,1000,618])
         end
         function h = plot(this, varargin)
             ip = inputParser;
@@ -152,8 +153,8 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
             if ipr.showKernel
                 hold('on')
                 plot(times, M, 'o', 'MarkerEdgeColor', "#0072BD")
-                plot(times, samp, '--', 'Color', "#0072BD", 'LineWidth', 2)
-                plot(times, deconvolved, '-', 'Color', "#A2142F", 'LineWidth', 2)
+                plot(times, samp, '--', 'Color', "#A2142F", 'LineWidth', 2)
+                plot(times, deconvolved, '-', 'Color', "#0072BD", 'LineWidth', 2)
                 plot(times, this.zoom*this.kernel(1:N), '--', 'Color', "#EDB120", 'LineWidth', 2)
                 legend({'measured', 'estimated', 'deconvolved', leg_kern}, 'FontSize', 12)
                 hold('off')
@@ -169,8 +170,9 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
             if ~isempty(ipr.ylim); ylim(ipr.ylim); end
             xlabel('times / s', FontSize=14, FontWeight='bold')
             ylabel('activity / Bq', FontSize=14, FontWeight='bold')
-            annotation('textbox', [.25 .5 .3 .3], 'String', sprintfModel(this), 'FitBoxToText', 'on', 'FontSize', 10, 'LineStyle', 'none')
+            annotation('textbox', [.5 .5 .3 .3], 'String', sprintfModel(this), 'FitBoxToText', 'on', 'FontSize', 10, 'LineStyle', 'none')
             title(clientname(false, 2), FontSize=14)
+            set(gcf, position=[100,100,1000,618])
         end
         function save(this)
             save([this.fileprefix '.mat'], this);

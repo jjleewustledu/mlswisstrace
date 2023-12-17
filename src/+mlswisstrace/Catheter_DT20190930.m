@@ -42,7 +42,7 @@ classdef Catheter_DT20190930 < handle
         end
         function g = get.halflife(this)
             switch upper(this.tracer)
-                case {'FDG' '18F'}
+                case {'FDG' '18F' 'RO948' 'MK6240' 'GTP1' 'ASEM' 'AZAN'}
                     g = 1.82951 * 3600; % +/- 0.00034 h * sec/h
                 case {'HO' 'CO' 'OC' 'OO' '15O'}
                     g = 122.2416;
