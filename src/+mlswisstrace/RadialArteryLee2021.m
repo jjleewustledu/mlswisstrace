@@ -30,7 +30,10 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
         %%
 
         function rho = deconvolved(this)
-            M0 = max(this.measurement);
+            measured_baseline = mean(this.measurement(1:5));
+            assert(measured_baseline < 0.2*max(this.measurement))
+            
+            M0 = max(this.measurement) - measured_baseline;
             N = length(this.measurement);
             ks = this.strategy_.ks;
             mdl = this.model;
