@@ -144,6 +144,19 @@ classdef Catheter_DT20190930 < handle
         function q = deconvBayes(this, varargin)
             k = this.kernel(varargin{:}); % length(k) >= length(this.Measurement)
             M = asrow(this.Measurement);
+
+            % proposed
+            % ic = mlfourd.ImagingContext2(asrow(this.Measurement));
+            % ic.addJsonMetadata(struct("timesMid", this.timeInterpolants));
+            % 
+            % ral = mlaif.RadialArteryLee2024Model.create( ...
+            %     artery=ic, ...
+            %     kernel=k, ...
+            %     model_kind=this.model_kind, ...
+            %     tracer=this.tracer);
+            % ral.build_solution();
+
+            % previously working
             ral = mlswisstrace.RadialArteryLee2021( ...
                 'tracer', this.tracer, ...
                 'kernel', k, ...
@@ -154,6 +167,7 @@ classdef Catheter_DT20190930 < handle
             if ral.loss() > 0.1, clientname(true, 2)
                 warning('mlswisstrace:ValueWarning', stackstr())
             end
+
             this.radialArteryLeeCache_ = ral;
             this.plot_deconv(varargin{:});
 

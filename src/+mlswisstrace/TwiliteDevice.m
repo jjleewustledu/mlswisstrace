@@ -1,4 +1,4 @@
-classdef TwiliteDevice < handle & mlpet.AbstractDevice
+classdef TwiliteDevice < handle & mlpet.InputFuncDevice
 	%% TWILITEDEVICE  
 
 	%  $Revision$
@@ -18,10 +18,144 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         % fqfileprefix
         hct
         invEfficiency
+        isWholeBlood
         radialArteryKit
         t0_forced
- 	end
-    
+    end
+
+	methods % GET/SET        
+        function g = get.baselineActivity(this)
+            g = this.data_.baselineActivity;
+        end
+        function g = get.baselineActivityDensity(this)
+            g = this.data_.baselineActivityDensity;
+        end
+        function g = get.baselineCountRate(this)
+            g = this.data_.baselineCountRate;
+        end
+        function g = get.calibrationAvailable(this)
+            g = this.calibration_.calibrationAvailable;
+        end
+        function g = get.catheterKit(this)
+            g = this.catheter_;
+        end
+        function g = get.deconvCatheter(this)
+            g = this.deconvCatheter_;
+        end
+        function     set.deconvCatheter(this, s)
+            this.deconvCatheter_ = s;
+        end
+        function g = get.do_close_fig(this)
+            g = this.catheter_.do_close_fig;
+        end
+        function     set.do_close_fig(this, s)
+            assert(islogical(s))
+            this.catheter_.do_close_fig = s;
+        end
+        function g = get.Dt(this)
+            g = this.Dt_;
+        end
+        function     set.Dt(this, s)
+            assert(isscalar(s))
+            this.Dt_ = s;
+        end
+        % function g = get.fqfileprefix(this)
+        %     g = this.catheter_.fqfileprefix;
+        % end
+        % function     set.fqfileprefix(this, s)
+        %     assert(istext(x))
+        %     this.catheter_.fqfileprefix = s;
+        % end
+        function g = get.hct(this)
+            g = this.catheter_.hct;
+        end
+        function     set.hct(this, s)
+            assert(isscalar(s))
+            if s < 1
+                s = 100*s;
+            end
+            this.catheter_.hct = s;
+        end
+        function g = get.invEfficiency(this)
+            g = this.invEfficiency_;
+        end
+        function g = get.isWholeBlood(this)
+            g = this.data_.isWholeBlood;
+        end
+        function g = get.radialArteryKit(this)
+            g = this.catheter_.radialArteryKit;
+        end
+        function g = get.t0_forced(this)
+            g = this.t0_forced_;
+        end
+        function     set.t0_forced(this, s)
+            assert(isnumeric(s));
+            this.t0_forced_ = s;
+        end
+    end
+
+    methods
+        function a = activity(this, varargin)
+            %% is calibrated to ref-source and catheter-adjusted and shifted in worldline; Bq
+            %  @param decayCorrected, default := false.
+ 			%  @param datetimeForDecayCorrection updates internal.
+            %  @param Nt is number of time samples (1 sec each).
+            
+            if ~this.deconvCatheter 
+                a_ = this.data_.activity(varargin{:});
+                a = this.invEfficiency_*a_;
+                return
+            end
+            if ~isempty(this.activityCached_)
+                a = this.activityCached_;
+                return
+            end
+
+            %% deconv AIF with Catheter_DT20190930 & RadialArteryLee2021
+
+            this.catheter_.Measurement = this.data_.activity(varargin{:});
+            a_ = this.catheter_.deconvBayes( ...
+                varargin{:});
+            a = this.invEfficiency_*a_;
+            %a = this.wb2plasma(a, this.hct, 0:length(a)-1); % applies only to FDG
+            this.activityCached_ = a;
+        end
+        function a = activityDensity(this, varargin)
+            %% is calibrated to ref-source and catheter-adjusted; Bq/mL
+            %  @param decayCorrected, default := false.
+ 			%  @param datetimeForDecayCorrection updates internal.
+            %  @param Nt is number of time samples (1 sec each).
+            
+            a = this.activity(varargin{:})/this.data_.visibleVolume;
+        end
+        function appendActivityDensity(this, varargin)
+            this.data_.appendActivityDensity(varargin{:});
+        end
+        function c = countRate(this, varargin)
+            %% has no calibrations nor catheter adjustments; in cps
+            %  @param decayCorrected, default := false.
+ 			%  @param datetimeForDecayCorrection updates internal.
+            %  @param Nt is number of time samples (1 sec each).
+            
+            c = this.data_.countRate(varargin{:});
+        end
+        function plot_deconv(this, varargin)
+            this.catheter_.plot_deconv(varargin{:});
+        end
+        function h = plot(this, varargin)
+            h = this.plotall(this, varargin{:});
+        end
+        function h = plotall(this, varargin)
+            %% PLOTALL
+            
+            h = figure;
+            tt = this.data_.tableTwilite;
+            plot(tt.datetime, tt.coincidences, '.', varargin{:});
+            ylabel('coincidence count rate / cps')
+            title(sprintf('%s.plot(%s)', class(this), this.data_.tracer))
+        end
+    end 
+        
     methods (Static)
         function this = createFromSession(sesd, varargin)
             rm = mlpet.CCIRRadMeasurements.createFromSession(sesd, varargin{:});
@@ -83,124 +217,6 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
         end
     end
 
-	methods % GET/SET        
-        function g = get.baselineActivity(this)
-            g = this.data_.baselineActivity;
-        end
-        function g = get.baselineActivityDensity(this)
-            g = this.data_.baselineActivityDensity;
-        end
-        function g = get.baselineCountRate(this)
-            g = this.data_.baselineCountRate;
-        end
-        function g = get.calibrationAvailable(this)
-            g = this.calibration_.calibrationAvailable;
-        end
-        function g = get.catheterKit(this)
-            g = this.catheter_;
-        end
-        function g = get.deconvCatheter(this)
-            g = this.deconvCatheter_;
-        end
-        function     set.deconvCatheter(this, s)
-            this.deconvCatheter_ = s;
-        end
-        function g = get.do_close_fig(this)
-            g = this.catheter_.do_close_fig;
-        end
-        function     set.do_close_fig(this, s)
-            assert(islogical(s))
-            this.catheter_.do_close_fig = s;
-        end
-        function g = get.Dt(this)
-            g = this.Dt_;
-        end
-        function     set.Dt(this, s)
-            assert(isscalar(s))
-            this.Dt_ = s;
-        end
-        % function g = get.fqfileprefix(this)
-        %     g = this.catheter_.fqfileprefix;
-        % end
-        % function     set.fqfileprefix(this, s)
-        %     assert(istext(x))
-        %     this.catheter_.fqfileprefix = s;
-        % end
-        function g = get.hct(this)
-            g = this.catheter_.hct;
-        end
-        function g = get.invEfficiency(this)
-            g = this.invEfficiency_;
-        end
-        function g = get.radialArteryKit(this)
-            g = this.catheter_.radialArteryKit;
-        end
-        function g = get.t0_forced(this)
-            g = this.t0_forced_;
-        end
-        function     set.t0_forced(this, s)
-            assert(isnumeric(s));
-            this.t0_forced_ = s;
-        end
-    end
-
-    methods
-        function a = activity(this, varargin)
-            %% is calibrated to ref-source and catheter-adjusted and shifted in worldline; Bq
-            %  @param decayCorrected, default := false.
- 			%  @param datetimeForDecayCorrection updates internal.
-            %  @param Nt is number of time samples (1 sec each).
-            
-            if ~this.deconvCatheter 
-                a_ = this.data_.activity(varargin{:});
-                a = this.invEfficiency_*a_;
-                return
-            end
-            if ~isempty(this.activityCached_)
-                a = this.activityCached_;
-                return
-            end
-            this.catheter_.Measurement = this.data_.activity(varargin{:});
-            a_ = this.catheter_.deconvBayes( ...
-                't0_forced', this.t0_forced, ...
-                varargin{:});
-            a = this.invEfficiency_*a_;
-            %a = this.wb2plasma(a, this.hct, 0:length(a)-1); % applies only to FDG
-            this.activityCached_ = a;
-        end
-        function a = activityDensity(this, varargin)
-            %% is calibrated to ref-source and catheter-adjusted; Bq/mL
-            %  @param decayCorrected, default := false.
- 			%  @param datetimeForDecayCorrection updates internal.
-            %  @param Nt is number of time samples (1 sec each).
-            
-            a = this.activity(varargin{:})/this.data_.visibleVolume;
-        end
-        function appendActivityDensity(this, varargin)
-            this.data_.appendActivityDensity(varargin{:});
-        end
-        function c = countRate(this, varargin)
-            %% has no calibrations nor catheter adjustments; in cps
-            %  @param decayCorrected, default := false.
- 			%  @param datetimeForDecayCorrection updates internal.
-            %  @param Nt is number of time samples (1 sec each).
-            
-            c = this.data_.countRate(varargin{:});
-        end
-        function plot_deconv(this, varargin)
-            this.catheter_.plot_deconv(varargin{:});
-        end
-        function h = plotall(this, varargin)
-            %% PLOTALL
-            
-            h = figure;
-            tt = this.data_.tableTwilite;
-            plot(tt.datetime, tt.coincidences, '.', varargin{:});
-            ylabel('coincidence count rate / cps')
-            title(sprintf('%s.plot(%s)', class(this), this.data_.tracer))
-        end
-    end 
-    
     %% PROTECTED
     
     properties (Access = protected)
@@ -214,7 +230,7 @@ classdef TwiliteDevice < handle & mlpet.AbstractDevice
     
     methods (Access = protected)        
  		function this = TwiliteDevice(varargin)
- 			this = this@mlpet.AbstractDevice(varargin{:});            
+ 			this = this@mlpet.InputFuncDevice(varargin{:});            
             ip = inputParser;
             ip.KeepUnmatched = true;
             addParameter(ip, 'hct', 45, @isnumeric);

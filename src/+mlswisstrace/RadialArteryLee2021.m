@@ -12,7 +12,7 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
         Data
         measurement % expose for performance when used strategies for solve
         model       %
-        Nensemble = 10
+        Nensemble
     end
 
     properties (Dependent)
@@ -111,11 +111,13 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
             
             ip = inputParser;
             ip.KeepUnmatched = true;
-            addParameter(ip, 'Measurement', [], @(x) isnumeric(x));
+            addParameter(ip, 'Measurement', [], @isnumeric);
             addParameter(ip, 'solver', 'simulanneal', @ischar);
+            addParameter(ip, 'Nensemble', 10, @isnumeric)
             parse(ip, varargin{:});
             ipr = ip.Results;
-            this.measurement = ipr.Measurement(1:end);            
+            this.Nensemble = ipr.Nensemble;
+            this.measurement = ipr.Measurement;            
  			this.model = mlswisstrace.RadialArteryLee2021Model(varargin{:});
                         
             switch lower(ipr.solver)

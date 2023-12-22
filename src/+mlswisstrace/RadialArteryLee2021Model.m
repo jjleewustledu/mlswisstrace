@@ -1,4 +1,4 @@
-classdef RadialArteryLee2021Model 
+classdef RadialArteryLee2021Model < handle & mlsystem.IHandle
 	%% RADIALARTERYLEE2021MODEL  
 
 	%  $Revision$
@@ -18,6 +18,61 @@ classdef RadialArteryLee2021Model
         times_sampled
         tracer
     end
+
+    properties (Dependent)
+        artery
+        artery_interpolated % double
+    end
+
+    methods %% GET
+        function g = get.artery(this)
+            g = copy(this.artery_);
+        end
+        function g = get.artery_interpolated(this)
+            if ~isempty(this.artery_interpolated_)
+                g = this.artery_interpolated_;
+                return
+            end
+
+            this.artery_interpolated_ = asrow(this.artery.imagingFormat.img);
+            g = this.artery_interpolated_;
+        end
+    end
+
+	methods 		  
+ 		function this = RadialArteryLee2021Model(varargin)
+ 			%% RADIALARTERYLEE2021MODEL
+ 			%  @param tracer is char.
+            %  @param  model_kind is char.
+            %  @param map is containers.Map.
+            %  @param kernel is numeric.
+            %  @param t0_forced is scalar, default empty.
+            %  @param times_sampled is numeric.
+            
+            import mlswisstrace.RadialArteryLee2021Model.preferredMap
+            
+            ip = inputParser;
+            ip.PartialMatching = false;
+            ip.KeepUnmatched = true;
+            addParameter(ip, 'tracer', [], @istext)
+            addParameter(ip, 'model_kind', [], @istext)
+            addParameter(ip, 'map', preferredMap(), @(x) isa(x, 'containers.Map'))
+            addParameter(ip, 'kernel', 1, @isnumeric)
+            addParameter(ip, 't0_forced', [], @isnumeric)
+            addParameter(ip, 'Measurement', [], @(x) isnumeric(x));
+            parse(ip, varargin{:})
+            ipr = ip.Results;
+            this.tracer = convertStringsToChars(upper(ipr.tracer));
+            this.model_kind = convertStringsToChars(ipr.model_kind);
+            this.map = ipr.map;
+            this.t0_forced = ipr.t0_forced;
+            this.adjustMapForTracer();
+            this.adjustMapForModelKind();
+            this.kernel = ipr.kernel;
+            this.artery_ = mlfourd.ImagingContext2(ipr.Measurement);
+            this.times_sampled = 0:(length(ipr.Measurement)-1);
+        end
+    end 
     
     methods (Static)
         function rho = decay_corrected(rho, tracer, t0)
@@ -34,18 +89,14 @@ classdef RadialArteryLee2021Model
         function rho = deconvolved(ks, N, kernel, tracer, model_kind)
             amplitude = ks(11);
             soln = mlswisstrace.RadialArteryLee2021Model.solution(ks, N, tracer, model_kind);
-            baseline_frac = ks(9);
-            if kernel == 1
-                rho = (1 - baseline_frac)*soln;
-                return
-            end
-
+            
             % adjust kernel integral as trapz; rescale soln informed by losses from convolutions
             conv_sk = conv(soln, kernel);
             max_sk = max(conv_sk(1:N));
             card_kernel = trapz(kernel);
-            %rho = (1 - baseline_frac)*card_kernel*soln; % produces deconvolutions too small by factor of 0.5
-            rho = (1 - baseline_frac)*(card_kernel/max_sk)*soln; 
+            %rho = amplitude*card_kernel*soln; % produces deconvolutions
+            %inconsistent with measuremed observations
+            rho = amplitude*(card_kernel/max_sk)*soln; 
         end
         function tau = halflife(tracer)
             switch upper(tracer)
@@ -78,15 +129,18 @@ classdef RadialArteryLee2021Model
         end
         function m = preferredMap()
             m = containers.Map;
-            m('k1') = struct('min',  0.5,   'max',   1.5,  'init',  0.5,  'sigma', 0.05); % alpha
-            m('k2') = struct('min',  0.05,  'max',   0.15, 'init',  0.05, 'sigma', 0.05); % beta in 1/sec
-            m('k3') = struct('min',  1,     'max',   3,    'init',  1,    'sigma', 0.05); % p
-            m('k4') = struct('min',  0,     'max',   1,    'init',  0,    'sigma', 0.05); % |dp2| for 2nd bolus
-            m('k5') = struct('min',  0,     'max', 120,    'init',  0,    'sigma', 0.05); % t0 in sec
-            m('k6') = struct('min',  0.1,   'max',   0.3,  'init',  0.2,  'sigma', 0.05); % steady-state fraction in (0, 1), for rising baseline
-            m('k7') = struct('min',  0,     'max',   0.1,  'init',  0.05, 'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
-            m('k8') = struct('min', 15,     'max',  90,    'init', 30,    'sigma', 0.05); % recirc delay in sec
-            m('k9') = struct('min',  0,     'max',   0.5,  'init',  0,    'sigma', 0.05); % baseline amplitude fraction \approx 0.05
+            m('k1')  = struct('min',  0.5,   'max',   2,    'init',  0.5,  'sigma', 0.05); % alpha
+            m('k2')  = struct('min',  0.05,  'max',   0.15, 'init',  0.05, 'sigma', 0.05); % beta in 1/sec
+            m('k3')  = struct('min',  0.25,  'max',   3,    'init',  1,    'sigma', 0.05); % p
+            m('k4')  = struct('min', -1,     'max',   0,    'init', -0.5,  'sigma', 0.05); % dp2 for last bolus; p2 = p1 + dp2
+            m('k5')  = struct('min',  0,     'max',  30,    'init',  0,    'sigma', 0.05); % t0 in sec
+            m('k6')  = struct('min',  0,     'max',   0.2,  'init',  0.05, 'sigma', 0.05); % steady-state fraction in (0, 1), for rising baseline
+            m('k7')  = struct('min',  0.3,   'max',   0.7,  'init',  0.3,  'sigma', 0.05); % 2nd bolus fraction
+            m('k8')  = struct('min',  0,     'max',  20,    'init',  0,    'sigma', 0.05); % 2nd bolus delay
+            m('k9')  = struct('min',  0.2,   'max',   0.4,  'init',  0.3,  'sigma', 0.05); % recirc fraction 
+            m('k10') = struct('min',  0,     'max',  20,    'init', 10,    'sigma', 0.05); % recirc delay 
+            m('k11') = struct('min',  0.5,   'max',   1,    'init',  0.95, 'sigma', 0.05); % amplitude fraction above baseline \approx 0.95
+            m('k12') = struct('min',  0.01,  'max',   0.2,  'init',  0.1,  'sigma', 0.05); % g for steady-state accumulation 
         end    
         function qs = sampled(ks, N, kernel, tracer, model_kind)
             %% @return the Bayesian estimate of the measured AIF, including baseline, scaled to unity.
@@ -115,84 +169,20 @@ classdef RadialArteryLee2021Model
         function qs = solution(ks, N, tracer, model_kind)
             %% @return the idealized true AIF without baseline, scaled to unity.
             
-            import mlswisstrace.RadialArteryLee2021Model
+            import mlaif.ArteryLee2021Model
             switch model_kind
                 case '1bolus'
-                    qs = RadialArteryLee2021Model.solution_1bolus(ks, N, tracer, ks(3));
+                    qs = ArteryLee2021Model.solution_1bolus(ks, N, tracer, ks(3));
                 case '2bolus'
-                    qs = RadialArteryLee2021Model.solution_2bolus(ks, N, tracer, ks(3));
+                    qs = ArteryLee2021Model.solution_2bolus(ks, N, tracer, ks(3));
                 case '3bolus'
-                    qs = RadialArteryLee2021Model.solution_3bolus(ks, N, tracer);
+                    qs = ArteryLee2021Model.solution_3bolus(ks, N, tracer);
+                case '4bolus'
+                    qs = ArteryLee2021Model.solution_4bolus(ks, N, tracer);
                 otherwise
-                    error('mlswisstrace:ValueError', ...
+                    error('mlaif:ValueError', ...
                         'RadialArteryLee2021Model.solution.model_kind = %s', model_kind)
             end
-        end
-        function qs = solution_1bolus(ks, N, tracer, p)
-            %% stretched gamma distribution
-
-            import mlswisstrace.RadialArteryLee2021Model.slide
-            import mlswisstrace.RadialArteryLee2021Model.halflife
-            t = 0:N-1;
-            t0 = ks(5);
-            a = ks(1);
-            b = ks(2);
-            
-            if (t(1) >= t0) 
-                t_ = t - t0;
-                qs = t_.^a .* exp(-(b*t_).^p);
-            else % k is complex for t - t0 < 0
-                t_ = t - t(1);
-                qs = t_.^a .* exp(-(b*t_).^p);
-                qs = slide(qs, t, t0 - t(1));
-            end
-            assert(all(imag(qs) == 0))
-            qs = qs .* 2.^(-t/halflife(tracer));
-            qs = qs/max(qs); % \in [0 1] 
-        end
-        function qs = solution_2bolus(ks, N, tracer, p)
-            %% stretched gamma distribution + rising steadystate
-
-            import mlswisstrace.RadialArteryLee2021Model.slide
-            import mlswisstrace.RadialArteryLee2021Model.halflife
-            t = 0:N-1;
-            t0 = ks(5);
-            a = ks(1);
-            b = ks(2);
-            g = ks(2);
-            ss_frac = ks(6);
-            
-            if (t(1) >= t0) 
-                t_ = t - t0;
-                k_ = t_.^a .* exp(-(b*t_).^p);
-                ss_ = 1 - exp(-g*t_);
-                qs = (1 - ss_frac)*k_ + ss_frac*ss_;
-            else % k is complex for t - t0 < 0
-                t_ = t - t(1);
-                k_ = t_.^a .* exp(-(b*t_).^p);
-                ss_ = 1 - exp(-g*t_);
-                qs = (1 - ss_frac)*k_ + ss_frac*ss_;
-                qs = slide(qs, t, t0 - t(1));
-            end
-            assert(all(imag(qs) == 0))
-            qs = qs .* 2.^(-t/halflife(tracer));
-            qs = qs/max(qs); % \in [0 1] 
-        end
-        function qs = solution_3bolus(ks, N, tracer)
-            %% stretched gamma distribution + rising steadystate + auxiliary stretched gamma distribution; 
-            %  forcing p2 = p - dp2 < p, to be more dispersive
-
-            import mlswisstrace.RadialArteryLee2021Model.solution_1bolus
-            import mlswisstrace.RadialArteryLee2021Model.solution_2bolus
-            import mlswisstrace.RadialArteryLee2021Model.slide
-            recirc_frac = ks(7);
-            recirc_delay = ks(8);
-            
-            qs2 = solution_2bolus(ks, N, tracer, ks(3));
-            qs1 = solution_1bolus(ks, N, tracer, ks(3) - ks(4));
-            qs1 = slide(qs1, 0:N-1, recirc_delay);
-            qs = (1 - recirc_frac)*qs2 + recirc_frac*qs1;
-            qs = qs/max(qs); % \in [0 1] 
         end
         
         %% UTILITIES
@@ -241,110 +231,23 @@ classdef RadialArteryLee2021Model
             end
         end
     end
-
-	methods 
-		  
- 		function this = RadialArteryLee2021Model(varargin)
- 			%% RADIALARTERYLEE2021MODEL
- 			%  @param tracer is char.
-            %  @param  model_kind is char.
-            %  @param map is containers.Map.
-            %  @param kernel is numeric.
-            %  @param t0_forced is scalar, default empty.
-            %  @param times_sampled is numeric.
-            
-            import mlswisstrace.RadialArteryLee2021Model.preferredMap
-            
-            ip = inputParser;
-            ip.PartialMatching = false;
-            ip.KeepUnmatched = true;
-            addParameter(ip, 'tracer', [], @istext)
-            addParameter(ip, 'model_kind', [], @istext)
-            addParameter(ip, 'map', preferredMap(), @(x) isa(x, 'containers.Map'))
-            addParameter(ip, 'kernel', 1, @isnumeric)
-            addParameter(ip, 't0_forced', [], @isnumeric)
-            addParameter(ip, 'times_sampled', [], @isnumeric)
-            parse(ip, varargin{:})
-            ipr = ip.Results;
-            this.tracer = convertStringsToChars(upper(ipr.tracer));
-            this.model_kind = convertStringsToChars(ipr.model_kind);
-            this.map = ipr.map;
-            this.t0_forced = ipr.t0_forced;
-            this = this.adjustMapForTracer();
-            this = this.adjustMapForModelKind();
-            this.kernel = ipr.kernel;
-            this.times_sampled = ipr.times_sampled; 			
- 		end
-    end 
     
     %% PROTECTED
+
+    properties (Access = protected)
+        artery_
+        artery_interpolated_
+    end
     
-    methods (Access = protected)     
-        function this = adjustMapForModelKind(this)
-            switch lower(this.model_kind)
-                case '1bolus'        
-                    this.map('k4') = struct('min',  0,     'max',   0,    'init',  0,    'sigma', 0.05); % dp2 for 2nd bolus
-
-                    this.map('k6') = struct('min',  0,     'max',   0,    'init',  0,    'sigma', 0.05); % steady-state fraction in (0, 1), for rising baseline
-                    this.map('k7') = struct('min',  0,     'max',   0,    'init',  0,    'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
-                    this.map('k8') = struct('min',  0,     'max',   0,    'init',  0,    'sigma', 0.05); % recirc delay in sec
-                case '2bolus'
-                    this.map('k4') = struct('min',  0,     'max',   0,    'init',  0,    'sigma', 0.05); % dp2 for 2nd bolus
-
-                    this.map('k7') = struct('min',  0,     'max',   0,    'init',  0,    'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
-                    this.map('k8') = struct('min',  0,     'max',   0,    'init',  0,    'sigma', 0.05); % recirc delay in sec
-                case '3bolus'
-                otherwise
-            end
-            if ~isempty(this.t0_forced)
-                this.map('k5') = struct('min', this.t0_forced, 'max', this.t0_forced, 'init', this.t0_forced, 'sigma', 0.05); % t0 in sec
-            end
+    methods (Access = protected)
+        function adjustMapForTracer(this)
+            Data.tracer = this.tracer;
+            this.map = mlaif.ArteryLee2021Model.static_adjustMapForTracer(this.map, Data);
         end
-        function this = adjustMapForTracer(this)
-            switch upper(this.tracer)
-                case {'RO948', 'MK6240', 'GTP1', 'ASEM', 'AZAN'}
-                    this.map('k1') = struct('min', 0.5,   'max',  10,    'init',  5,    'sigma', 0.05); % alpha
-                    this.map('k2') = struct('min', 0.01,  'max',   0.15, 'init',  0.05, 'sigma', 0.05); % beta
-                    this.map('k3') = struct('min', 0.25,  'max',   4,    'init',  2,    'sigma', 0.05); % p
-                    this.map('k4') = struct('min', 0,     'max',   2,    'init',  1,    'sigma', 0.05); % dp2 for 2nd bolus
-                    this.map('k5') = struct('min', 0,     'max',  30,    'init',  0,    'sigma', 0.05); % t0 in sec   
-                    this.map('k6') = struct('min', 0.05,  'max',   0.5,  'init',  0.05, 'sigma', 0.05); % steady-state fraction in (0, 1)  
-                    this.map('k7') = struct('min', 0.05,  'max',   0.25, 'init',  0.05, 'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
-                    this.map('k8') = struct('min', 5,     'max',  20,    'init', 10,    'sigma', 0.05); % recirc delay in sec
-                case {'FDG' '18F'}
-                    this.map('k5') = struct('min',  0,    'max',  30,    'init',  0,    'sigma', 0.05); % t0 in sec   
-                    this.map('k6') = struct('min', 0.05,  'max',   0.5,  'init',  0.05, 'sigma', 0.05); % steady-state fraction in (0, 1)  
-                    this.map('k7') = struct('min', 0.05,  'max',   0.25, 'init',  0.05, 'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
-                    this.map('k8') = struct('min', 5,     'max',  20,    'init', 10,    'sigma', 0.05); % recirc delay in sec
-                case {'HO' 'OH'}
-%                    this.map('k9') = struct('min',  0.05, 'max',   0.25, 'init',  0.05, 'sigma', 0.05); % baseline amplitude fraction \approx 0.05
-                case {'CO' 'OC'}  
-                    this.map('k1') = struct('min',  0.1,  'max',  10,    'init',  0.25, 'sigma', 0.05); % alpha
-                    this.map('k2') = struct('min', 10,    'max',  25,    'init', 15,    'sigma', 0.05); % beta
-                    this.map('k3') = struct('min',  0.25, 'max',   1,    'init',  0.5,  'sigma', 0.05); % p
-
-                    this.map('k5') = struct('min',  0,    'max',  30,    'init',  0,    'sigma', 0.05); % t0 in sec            
-                    this.map('k6') = struct('min',  0.05, 'max',   0.5,  'init',  0.05, 'sigma', 0.05); % steady-state fraction in (0, 1)      
-
-                    this.map('k8') = struct('min', 30,    'max', 120,    'init', 60,    'sigma', 0.05); % recirc delay in sec
-%                    this.map('k9') = struct('min',  0.02, 'max',   0.5,  'init',  0.1,  'sigma', 0.05); % baseline amplitude fraction \approx 0.05
-                case 'OO'
-                    % allow double inhalation
-                    this.map('k1') = struct('min', 1,     'max',   5,    'init',  1,    'sigma', 0.05); % alpha
-                    this.map('k2') = struct('min', 0.1,   'max',  25,    'init',  0.1,  'sigma', 0.05); % beta
-
-                    this.map('k5') = struct('min', 5,     'max',  30,    'init',  0,    'sigma', 0.05); % t0 in sec   
-
-                    this.map('k7') = struct('min', 0.05,  'max',   0.49, 'init',  0.05, 'sigma', 0.05); % recirc fraction < 0.5, for 2nd bolus
-                    this.map('k8') = struct('min', eps,   'max',  30,    'init', 15,    'sigma', 0.05); % recirc delay in sec
-%                    this.map('k9') = struct('min',  0.05, 'max',   0.25, 'init',  0.05, 'sigma', 0.05); % baseline amplitude fraction \approx 0.05
-                otherwise
-                    % noninformative
-            end
-
-            if ~isempty(this.t0_forced)
-                this.map('k5') = struct('min', this.t0_forced-1, 'max', this.t0_forced+1, 'init', this.t0_forced, 'sigma', 0.05); % t0 in sec
-            end
+        function adjustMapForModelKind(this)
+            Data.model_kind = this.model_kind;
+            Data.t0_forced = this.t0_forced;
+            this.map = mlaif.ArteryLee2021Model.static_adjustMapForModelKind(this.map, Data);
         end
     end
 

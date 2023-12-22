@@ -34,6 +34,11 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
             ic = this.do_make_input_func(a);
         end
         function dev = do_make_device(this, varargin)
+            if ~isempty(this.device_)
+                dev = this.device_;
+                return
+            end
+
             this.device_ = this.buildArterialSamplingDevice(varargin{:});
             %fqfp = sprintf("%s_%s", this.bids_kit_.make_bids_med.imagingContext.fqfp, stackstr());
             %saveFigure2(gcf, fqfp, closeFigure=false);
@@ -54,18 +59,25 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
             if isempty(this.device_)
                 do_make_device(this);
             end
+
+            if ~isempty(this.input_func_ic_)
+                ic = this.input_func_ic_;
+                return
+            end
+
             med = this.bids_kit_.make_bids_med();
             idx0 = this.device_.index0;
             idxF = this.device_.indexF;
             ifc = copy(med.imagingFormat);
             ifc.img = measurement;
-            ifc.fileprefix = sprintf("%s_%s", ifc.fileprefix, stackstr(3));
+            ifc.fqfp = this.device_.new_fqfp();
             ifc.json_metadata.taus = this.device_.taus(idx0:idxF);
             ifc.json_metadata.times = this.device_.times(idx0:idxF) - this.device_.times(idx0);
             ifc.json_metadata.timesMid = this.device_.timesMid(idx0:idxF) - this.device_.timesMid(idx0);
             ifc.json_metadata.timeUnit = "second";
-            this.input_func_ic_ = mlfourd.ImagingContext2(ifc);
-            ic = this.input_func_ic_;
+            ic = mlfourd.ImagingContext2(ifc);
+            %ic.addJsonMetadata(opts);
+            this.input_func_ic_ = ic;
         end
     end
 
@@ -97,18 +109,23 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
 
     methods (Access = private)
         function input_func_dev = buildArterialSamplingDevice(this, opts)
+            % sameWorldline prevent shifting worldline of input func. to reference time series
+            
             arguments
                 this mlswisstrace.TwiliteKit
                 opts.deconvCatheter logical = true
-                opts.sameWorldline logical = false
+                opts.sameWorldline logical = false 
                 opts.indexCliff double = []
                 opts.fqfileprefix {mustBeTextScalar} = ""
-                opts.do_close_fig logical = false;
+                opts.do_close_fig logical = false
+                opts.referenceDev = this.referenceDev_
             end
             med = this.bids_kit_.make_bids_med();
-            scanner_dev = this.scanner_kit_.do_make_device();
             if isemptytext(opts.fqfileprefix)
-                opts.fqfileprefix = sprintf("%s_%s", med.imagingContext.fqfileprefix, stackstr(3));
+                pth = med.imagingContext.filepath;
+                fp = mlpipeline.Bids.adjust_fileprefix(med.imagingContext.fileprefix, ...                
+                    new_proc=stackstr(use_dashes=true), new_mode="dev");
+                opts.fqfileprefix = fullfile(pth, fp);
             end
             
             input_func_dev = mlswisstrace.TwiliteDevice.createFromSession(med);
@@ -122,11 +139,11 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
             input_func_dev.radialArteryKit.saveas( ...
                 sprintf("%s_%s_radialArteryKit.mat", med.imagingContext.fqfp, stackstr(3)));
 
-            if scanner_dev.timeWindow > input_func_dev.timeWindow && ...
+            if opts.referenceDev.timeWindow > input_func_dev.timeWindow && ...
                     contains(med.isotope, '15O')
                 warning('mlsiemens:ValueWarning', ...
                     'scannerDev.timeWindow->%g; arterialDev.timeWindow->%g', ...
-                    scanner_dev.timeWindow, input_func_dev.timeWindow)
+                    opts.referenceDev.timeWindow, input_func_dev.timeWindow)
                 %this.inspectTwiliteCliff(arterialDev, scannerDev, ipr.indexCliff);
             end
         end
