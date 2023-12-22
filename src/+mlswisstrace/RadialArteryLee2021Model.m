@@ -6,8 +6,8 @@ classdef RadialArteryLee2021Model
  	%  last modified $LastChangedDate$ and placed into repository /Users/jjlee/MATLAB-Drive/mlswisstrace/src/+mlswisstrace.
  	%% It was developed on Matlab 9.9.0.1592791 (R2020b) Update 5 for MACI64.  Copyright 2021 John Joowon Lee.
  	
-    properties (Constant)
-        ks_names = {'\alpha' '\beta' 'p' 'dp_2' 't_0' 'steadystate\_fraction' 'recirc\_fraction' 'recirc\_delay' 'baseline\_fraction'}
+    properties (Constant) 
+        ks_names = {'\alpha' '\beta' 'p' 'dp_F' 't_0' 'steadystate\_fraction' 'bolus_2\_fraction' 'bolus_2\_delay' 'recirc\_fraction' 'recirc\_delay' 'amplitude\_fraction' '\gamma'}
     end
     
 	properties 	
@@ -32,6 +32,7 @@ classdef RadialArteryLee2021Model
             rho = rho .* 2.^(times/halflife(tracer));
         end
         function rho = deconvolved(ks, N, kernel, tracer, model_kind)
+            amplitude = ks(11);
             soln = mlswisstrace.RadialArteryLee2021Model.solution(ks, N, tracer, model_kind);
             baseline_frac = ks(9);
             if kernel == 1
@@ -90,7 +91,7 @@ classdef RadialArteryLee2021Model
         function qs = sampled(ks, N, kernel, tracer, model_kind)
             %% @return the Bayesian estimate of the measured AIF, including baseline, scaled to unity.
             
-            baseline_frac = ks(9);
+            baseline_frac = 1 - ks(11);
             scale_frac = 1 - baseline_frac;
             
             if kernel == 1
