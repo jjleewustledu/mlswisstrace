@@ -12,19 +12,27 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
         Data
         measurement % expose for performance when used strategies for solve
         model       %
-        Nensemble = 20
+        Nensemble = 10
     end
 
     properties (Dependent)
+        map
         strategy
+        times_sampled
     end
 
 	methods
 
         %% GET
 
+        function g = get.map(this)
+            g = this.model.map;
+        end
         function g = get.strategy(this)
             g = this.strategy_;
+        end
+        function g = get.times_sampled(this)
+            g = this.model.times_sampled;
         end
 
         %%
@@ -45,21 +53,11 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
         function h = plot(this, varargin)
             h = this.strategy_.plot(varargin{:});
         end
-        function h = plot_dc(this, varargin)
-            h = this.strategy_.plot_dc(varargin{:});
-        end
         function rho = sampled(this)
-            M0 = max(this.measurement);
-            N = length(this.measurement);
-            ks = this.strategy_.ks;
-            mdl = this.model;
-            p = [];
             error('mlswisstrace:notImplementedError', 'RadialArteryLee2021.sampled')
         end
         function this = solve(this, varargin)
-            %% @param required loss_function is function_handle.            
-
-
+            %% @param required loss_function is function_handle.  
 
             solved = cell(this.Nensemble, 1);
             losses = NaN(this.Nensemble, 1);
@@ -77,8 +75,6 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
             T = table(solved, losses);
             T = sortrows(T, "losses", "ascend");
             this.strategy_ = T{1, "solved"}{1};
-
-
 
             %this.strategy_ = solve(this.strategy_, @mlswisstrace.RadialArteryLee2021Model.loss_function);
         end
@@ -119,7 +115,7 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
             addParameter(ip, 'solver', 'simulanneal', @ischar);
             parse(ip, varargin{:});
             ipr = ip.Results;
-            this.measurement = ipr.Measurement;            
+            this.measurement = ipr.Measurement(1:end);            
  			this.model = mlswisstrace.RadialArteryLee2021Model(varargin{:});
                         
             switch lower(ipr.solver)
