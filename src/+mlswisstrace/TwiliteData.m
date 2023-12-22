@@ -44,9 +44,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
         function g = get.visibleVolume(this)
             %% of catheter, default := 0.27 mL, default := 0.14 mL for datetime < 20170412
             
-            if isnan(this.visibleVolume_)
-                this.visibleVolume_ = 0.27; % mL for Braun ref V5424, 38 cm len, 0.642 mL priming vol
-            end
+            this.visibleVolume_ = this.radMeasurements.twilite.VISIBLEVolume_ML;
             if isdatetime(this.datetimeForDecayCorrection) && ...
                 ~isnat(this.datetimeForDecayCorrection) && ...
                     this.datetimeForDecayCorrection < datetime(2017,4,12, 'TimeZone', mlpipeline.ResourcesRegistry.instance().preferredTimeZone)
