@@ -133,13 +133,12 @@ classdef RadialArteryLee2021SimulAnneal < mloptimization.SimulatedAnnealing
                 ipr.showKernel = false;
             end
             this.zoom = ipr.zoom;
-            M = this.Measurement * ipr.scaling;
-            N = length(M);
-            M0 = max(M);
-                        
-            h = figure;
-            samp = M0*this.model.sampled(this.ks, N, this.kernel, this.tracer, this.model_kind);
-            deconvolved = M0*this.model.deconvolved(this.ks, N, this.kernel, this.tracer, this.model_kind);
+            Meas = this.Measurement;  
+            N = length(Meas);                     
+            Model = this.rescaleModelEstimate( ...
+                this.model.sampled(this.ks, N, this.kernel, this.tracer, this.model_kind));
+            Deconvolved = this.rescaleModelEstimate( ...
+                this.model.deconvolved(this.ks, N, this.kernel, this.tracer, this.model_kind));
             times = 0:N-1;
             
             if isempty(this.zoom)
