@@ -1,7 +1,7 @@
 classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Heterogeneous & matlab.mixin.Copyable
 	%% RADIALARTERYLEE2021 provides a strategy design pattern for inferring cerebral AIFs
     %  from measurements sampling the radial artery and a model kernel for delay and dispersion
-    %  from the cannulation of the radial artery.
+    %  from the cannulation of the radial artery.  It is DEPRECATED.
 
 	%  $Revision$
  	%  was created 14-Mar-2021 17:12:35 by jjlee,
@@ -37,13 +37,10 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
 
         %%
 
-        function rho = deconvolved(this)
-            measured_baseline = mean(this.measurement(1:5));
-            assert(measured_baseline < 0.2*max(this.measurement))
-            
-            M0 = max(this.measurement) - measured_baseline;
-            N = length(this.measurement);
+        function rho = deconvolved(this)            
+            M0 = this.strategy_.M0;
             ks = this.strategy_.ks;
+            N = length(this.measurement);
             mdl = this.model;
             rho = M0*this.model.deconvolved(ks, N, mdl.kernel, mdl.tracer, mdl.model_kind);
         end
@@ -113,7 +110,7 @@ classdef RadialArteryLee2021 < handle & mlio.AbstractHandleIO & matlab.mixin.Het
             ip.KeepUnmatched = true;
             addParameter(ip, 'Measurement', [], @isnumeric);
             addParameter(ip, 'solver', 'simulanneal', @ischar);
-            addParameter(ip, 'Nensemble', 10, @isnumeric)
+            addParameter(ip, 'Nensemble', 1, @isnumeric)
             parse(ip, varargin{:});
             ipr = ip.Results;
             this.Nensemble = ipr.Nensemble;

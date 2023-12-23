@@ -19,6 +19,7 @@ classdef TwiliteDevice < handle & mlpet.InputFuncDevice
         hct
         invEfficiency
         isWholeBlood
+        model_kind
         radialArteryKit
         t0_forced
     end
@@ -82,6 +83,13 @@ classdef TwiliteDevice < handle & mlpet.InputFuncDevice
         function g = get.isWholeBlood(this)
             g = this.data_.isWholeBlood;
         end
+        function g = get.model_kind(this)
+            g = this.catheter_.model_kind;
+        end
+        function     set.model_kind(this, s)
+            assert(istext(s))
+            this.catheter_.model_kind = s;
+        end
         function g = get.radialArteryKit(this)
             g = this.catheter_.radialArteryKit;
         end
@@ -99,34 +107,33 @@ classdef TwiliteDevice < handle & mlpet.InputFuncDevice
             %% is calibrated to ref-source and catheter-adjusted and shifted in worldline; Bq
             %  @param decayCorrected, default := false.
  			%  @param datetimeForDecayCorrection updates internal.
-            %  @param Nt is number of time samples (1 sec each).
-            
-            if ~this.deconvCatheter 
-                a_ = this.data_.activity(varargin{:});
-                a = this.invEfficiency_*a_;
-                return
-            end
-            if ~isempty(this.activityCached_)
-                a = this.activityCached_;
-                return
-            end
+            %  @param Nt is number of time samples (1 sec each).            
 
-            %% deconv AIF with Catheter_DT20190930 & RadialArteryLee2021
-
-            this.catheter_.Measurement = this.data_.activity(varargin{:});
-            a_ = this.catheter_.deconvBayes( ...
-                varargin{:});
-            a = this.invEfficiency_*a_;
-            %a = this.wb2plasma(a, this.hct, 0:length(a)-1); % applies only to FDG
-            this.activityCached_ = a;
+            a = this.activityDensity(varargin{:})*this.data_.visibleVolume;
         end
         function a = activityDensity(this, varargin)
             %% is calibrated to ref-source and catheter-adjusted; Bq/mL
             %  @param decayCorrected, default := false.
  			%  @param datetimeForDecayCorrection updates internal.
-            %  @param Nt is number of time samples (1 sec each).
+            %  @param Nt is number of time samples (1 sec each).            
             
-            a = this.activity(varargin{:})/this.data_.visibleVolume;
+            if ~this.deconvCatheter 
+                a_ = this.data_.activityDensity(varargin{:});
+                a = this.invEfficiency_*a_;
+                return
+            end
+
+            if ~isempty(this.activityDensityCached_)
+                a = this.activityDensityCached_;
+                return
+            end
+
+            %% deconv AIF with Catheter_DT20190930 & RadialArteryLee2024
+
+            this.catheter_.Measurement = this.data_.activityDensity(varargin{:});
+            a_ = this.catheter_.deconvBayes(varargin{:});
+            a = this.invEfficiency_*a_;
+            this.activityDensityCached_ = a;
         end
         function appendActivityDensity(this, varargin)
             this.data_.appendActivityDensity(varargin{:});
@@ -220,7 +227,7 @@ classdef TwiliteDevice < handle & mlpet.InputFuncDevice
     %% PROTECTED
     
     properties (Access = protected)
-        activityCached_ %% MUST reset to empty if TwiliteData objects change
+        activityDensityCached_ %% MUST reset to empty if TwiliteData objects change
         catheter_
         deconvCatheter_
         Dt_
@@ -238,6 +245,7 @@ classdef TwiliteDevice < handle & mlpet.InputFuncDevice
             addParameter(ip, 't0_forced', [], @isnumeric);
             addParameter(ip, 'fqfileprefix', '', @istext);
             addParameter(ip, 'do_close_fig', false, @islogical);
+            addParameter(ip, 'model_kind', '3bolus', @istext);
             parse(ip, varargin{:});
             ipr = ip.Results;
             
@@ -245,7 +253,7 @@ classdef TwiliteDevice < handle & mlpet.InputFuncDevice
                 'Measurement', this.countRate, ...
                 'hct', ipr.hct, ...
                 'tracer', this.tracer, ...
-                'model_kind', '3bolus', ...
+                'model_kind', ipr.model_kind, ...
                 'fqfileprefix', ipr.fqfileprefix, ...
                 'do_close_fig', ipr.do_close_fig);
             this.fqfileprefix = ipr.fqfileprefix;
@@ -254,7 +262,7 @@ classdef TwiliteDevice < handle & mlpet.InputFuncDevice
                 mlcapintec.RefSourceCalibration.invEfficiencyf();
             this.deconvCatheter_ = ipr.deconvCatheter;
             this.t0_forced_ = ipr.t0_forced;
-            this.activityCached_ = [];
+            this.activityDensityCached_ = [];
  		end
     end
     

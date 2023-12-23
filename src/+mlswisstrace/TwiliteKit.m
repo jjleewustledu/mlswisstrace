@@ -85,14 +85,18 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
         function this = instance(varargin)
             this = mlswisstrace.TwiliteKit();
             this.install_input_func(varargin{:})
+            this.do_make_device();
+
             % persistent uniqueInstance
             % if isempty(uniqueInstance)
             %     this = mlswisstrace.TwiliteKit();
             %     this.install_input_func(varargin{:})
+            %     this.do_make_device();
             %     uniqueInstance = this;
             % else
             %     this = uniqueInstance;
             %     this.install_input_func(varargin{:})
+            %     this.do_make_device();
             % end
         end
     end 
@@ -119,6 +123,8 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
                 opts.fqfileprefix {mustBeTextScalar} = ""
                 opts.do_close_fig logical = false
                 opts.referenceDev = this.referenceDev_
+                opts.hct = this.hct_
+                opts.model_kind = this.model_kind_
             end
             med = this.bids_kit_.make_bids_med();
             if isemptytext(opts.fqfileprefix)
@@ -132,12 +138,14 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
             input_func_dev.fqfileprefix = opts.fqfileprefix; % hard to manage with TwiliteDevice() inputParser
             input_func_dev.do_close_fig = opts.do_close_fig; % hard to manage with TwiliteDevice() inputParser
             input_func_dev.deconvCatheter = opts.deconvCatheter;
+            input_func_dev.hct = opts.hct;
+            input_func_dev.model_kind = opts.model_kind;
             input_func_dev = input_func_dev.alignArterialToReference( ...
                 arterialDev=input_func_dev, ...
                 referenceDev=opts.referenceDev, ...
                 sameWorldline=opts.sameWorldline);
-            input_func_dev.radialArteryKit.saveas( ...
-                sprintf("%s_%s_radialArteryKit.mat", med.imagingContext.fqfp, stackstr(3)));
+            %input_func_dev.radialArteryKit.saveas( ...
+            %    sprintf("%s_%s_radialArteryKit.mat", med.imagingContext.fqfp, stackstr(3)));
 
             if opts.referenceDev.timeWindow > input_func_dev.timeWindow && ...
                     contains(med.isotope, '15O')

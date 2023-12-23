@@ -143,36 +143,38 @@ classdef Catheter_DT20190930 < handle
         end
         function q = deconvBayes(this, varargin)
             k = this.kernel(varargin{:}); % length(k) >= length(this.Measurement)
-            M = asrow(this.Measurement);
 
             % proposed
-            % ic = mlfourd.ImagingContext2(asrow(this.Measurement));
-            % ic.addJsonMetadata(struct("timesMid", this.timeInterpolants));
-            % 
-            % ral = mlaif.RadialArteryLee2024Model.create( ...
-            %     artery=ic, ...
-            %     kernel=k, ...
-            %     model_kind=this.model_kind, ...
-            %     tracer=this.tracer);
-            % ral.build_solution();
+            ic = mlfourd.ImagingContext2(asrow(this.Measurement));
+            ic.fqfilename = strcat(this.fqfileprefix, ".nii.gz");
+            ic.addJsonMetadata(struct("timesMid", this.timeInterpolants));
+
+            ral = mlaif.RadialArteryLee2024Model.create( ...
+                artery=ic, ...
+                kernel=k, ...
+                model_kind=this.model_kind, ...
+                tracer=this.tracer, ...
+                scalingWorldline=this.scalingWorldline);
+            ral.build_solution();
 
             % previously working
-            ral = mlswisstrace.RadialArteryLee2021( ...
-                'tracer', this.tracer, ...
-                'kernel', k, ...
-                'model_kind', this.model_kind, ...
-                'Measurement', M, ...
-                varargin{:});
-            ral = ral.solve();
-            if ral.loss() > 0.1, clientname(true, 2)
-                warning('mlswisstrace:ValueWarning', stackstr())
-            end
+            % M = asrow(this.Measurement);
+            % ral = mlswisstrace.RadialArteryLee2021( ...
+            %     'tracer', this.tracer, ...
+            %     'kernel', k, ...
+            %     'model_kind', this.model_kind, ...
+            %     'Measurement', M, ...
+            %     varargin{:});
+            % ral = ral.solve();
+            % if ral.loss() > 0.1, clientname(true, 2)
+            %     warning('mlswisstrace:ValueWarning', stackstr())
+            %end
 
             this.radialArteryLeeCache_ = ral;
-            this.plot_deconv(varargin{:});
+            %this.plot_deconv(varargin{:});
 
             %% REFACTOR?
-            q = this.scalingWorldline*ral.deconvolved();      
+            q = ral.deconvolved();      
         end
         function k = kernel(this, varargin)
             %% including regressions on catheter data of 2019 Sep 30
@@ -212,7 +214,7 @@ classdef Catheter_DT20190930 < handle
             end
         end
         function plot_deconv(this, varargin)
-            h = this.radialArteryKit.plot(varargin{:});
+            h = this.radialArteryLeeCache_.plot(varargin{:});
             if ~isempty(this.fqfp) && ~isemptytext(this.fqfp)
                 saveFigure2(h, this.fqfileprefix, closeFigure=this.do_close_fig)
             end

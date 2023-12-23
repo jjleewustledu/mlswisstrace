@@ -1,5 +1,5 @@
 classdef Test_RadialArteryLee2021 < matlab.unittest.TestCase
-	%% TEST_RADIALARTERYLEE2021 
+	%% TEST_RADIALARTERYLEE2021 is DEPRECATED
 
 	%  Usage:  >> results = run(mlswisstrace_unittest.Test_RadialArteryLee2021)
  	%          >> result  = run(mlswisstrace_unittest.Test_RadialArteryLee2021, 'test_dt')

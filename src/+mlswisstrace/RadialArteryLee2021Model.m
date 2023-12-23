@@ -1,5 +1,5 @@
 classdef RadialArteryLee2021Model < handle & mlsystem.IHandle
-	%% RADIALARTERYLEE2021MODEL  
+	%% RADIALARTERYLEE2021MODEL is DEPRECATED.
 
 	%  $Revision$
  	%  was created 14-Mar-2021 17:21:03 by jjlee,
