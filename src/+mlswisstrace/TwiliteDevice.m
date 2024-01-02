@@ -211,8 +211,20 @@ classdef TwiliteDevice < handle & mlpet.InputFuncDevice
                 return
             end
             if isa(sesd0, 'mlpipeline.ImagingMediator')
-                scans = glob(fullfile(sesd0.subjectPath, '**', '*trc-fdg_proc-static-phantom*_pet.nii.gz'))';
-                assert(~isempty(scans), stackstr())
+                scans = glob(fullfile(sesd0.subjectPath, '**', 'sub-*_ses-*_trc-fdg_proc-static-phantom*_pet.nii.gz'))';
+                if isempty(scans)
+                    scans = glob(fullfile(sesd0.subjectPath, '**', 'sub-*_ses-*_trc-fdg_proc-delay0-BrainMoCo2-createNiftiStatic-phantom.nii.gz')); 
+                    % e.g.: sub-108250_ses-20221207120651_trc-fdg_proc-delay0-BrainMoCo2-createNiftiStatic-phantom.nii.gz
+                end
+                if isempty(scans)
+                    scans = glob(fullfile(sesd0.subjectPath, '**', 'sub-*_ses-*_Phantom*Static*.nii.gz'));
+                end
+                if isempty(scans)
+                    scans = glob(fullfile(sesd0.subjectPath, '**', 'sub-*_ses-*_Static*Phantom*.nii.gz'));
+                end
+                if isempty(scans)
+                    scans = glob(fullfile(sesd0.subjectPath, '**', 'sub-*_ses-*_FDG_Static*.nii.gz'));
+                end
                 sesd = sesd0.create(scans{end}); 
                 return
             end

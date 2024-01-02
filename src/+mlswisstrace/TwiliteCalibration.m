@@ -10,8 +10,83 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
     properties (Dependent)
         Bq_over_cps
         calibrationAvailable
+        fqfnCrvCal
         invEfficiency
         twiliteData
+    end
+    
+	methods % GET        
+        function g = get.Bq_over_cps(this)
+            g = asrow(this.Bq_over_cps_);
+        end
+        function g = get.calibrationAvailable(this)
+            g = ~isempty(this.twiliteData_) && ~isnan(this.invEfficiency);
+        end
+        function g = get.fqfnCrvCal(this)
+            rm = this.radMeasurements_;
+            if contains(rm.twilite.COMMENTS, "crv")
+                re = regexp(rm.twilite.COMMENTS{1}, "crv\s*=\s*(?<fn>\w+_dt\d+.crv)", "names");
+                fqfnCrvs = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite', 'CRV', re.fn));
+                g = fqfnCrvs{1};
+                return
+            end
+            g = '';            
+        end
+        function g = get.invEfficiency(this)
+            if strcmp(this.sessionData.scanFolder, 'FDG_DT20180601125239.000000-Converted-AC')
+                g = 1.643;
+                return
+            end
+            g = asrow(this.invEfficiency_);
+        end
+        function g = get.twiliteData(this)
+            g = this.twiliteData_;
+        end
+    end
+
+    methods
+        function [ad,td] = activityDensityForCal(this)
+            %% finds the temporally most proximate Twilite cal data and estimates activity density in Bq/mL.
+            
+            td = copy(this.twiliteData_);
+            [~,thresholdedIndex] = max(td.countRate() > td.baselineSup);
+            dtM1 = this.radMeasurements_.mMR.scanStartTime_Hh_mm_ss(1);
+            dtM2 = td.datetimeMeasured + seconds(thresholdedIndex - 1);
+            td.findBaseline(dtM2);
+            td.findBolus(dtM1);
+            td.timeForDecayCorrection = td.time0;
+            td.decayCorrect;
+            ad = td.activityDensity('index0', td.index0, 'indexF', td.indexF);
+            ad = asrow(ad);
+        end
+        function [cr,td] = countRateForCal(this)
+            %% finds the temporally most proximate Twilite cal data and estimates count rate in counts/s.
+            
+            td = copy(this.twiliteData_);
+            [~,thresholdedIndex] = max(td.countRate() > td.baselineSup);
+            dtM1 = this.radMeasurements_.mMR.scanStartTime_Hh_mm_ss(1);
+            dtM2 = td.datetimeMeasured + seconds(thresholdedIndex - 1);
+            td.findBaseline(dtM2);
+            td.findBolus(dtM1);
+            td.timeForDecayCorrection = td.time0;
+            td.decayCorrect;
+            cr = td.countRate('index0', td.index0, 'indexF', td.indexF);
+            cr = asrow(cr)/this.twiliteData_.visibleVolume;
+        end
+        function [h1,h2] = plot(this)
+            assert(isa(this.twiliteData_, 'mlswisstrace.TwiliteData'), ...
+                'mlswisstrace:RuntimeError', 'TwiliteCalibration.plot() found faulty this.twiliteData_')
+            td = copy(this.twiliteData_);
+            td.resetTimeLimits;
+            h1 = td.plot();
+            h2 = figure;
+            [ad,td] = this.activityDensityForCal();
+            plot(ad);
+            xlabel('indices')
+            ylabel('activity density / (Bq/mL)')
+            title('mlswisstrace.TwiliteCalibration.plot():this.activityDensityForCal()')
+            text(10, (max(ad) - min(ad))/2, ['sampling start: ' datestr(td.datetime0)])
+        end        
     end
     
     methods (Static)
@@ -104,71 +179,6 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
         end
     end
     
-	methods % GET        
-        function g = get.Bq_over_cps(this)
-            g = asrow(this.Bq_over_cps_);
-        end
-        function g = get.calibrationAvailable(this)
-            g = ~isempty(this.twiliteData_) && ~isnan(this.invEfficiency);
-        end
-        function g = get.invEfficiency(this)
-            if strcmp(this.sessionData.scanFolder, 'FDG_DT20180601125239.000000-Converted-AC')
-                g = 1.643;
-                return
-            end
-            g = asrow(this.invEfficiency_);
-        end
-        function g = get.twiliteData(this)
-            g = this.twiliteData_;
-        end
-    end
-
-    methods
-        function [ad,td] = activityDensityForCal(this)
-            %% finds the temporally most proximate Twilite cal data and estimates activity density in Bq/mL.
-            
-            td = copy(this.twiliteData_);
-            [~,thresholdedIndex] = max(td.countRate() > td.baselineSup);
-            dtM1 = this.radMeasurements_.mMR.scanStartTime_Hh_mm_ss(1);
-            dtM2 = td.datetimeMeasured + seconds(thresholdedIndex - 1);
-            td.findBaseline(dtM2);
-            td.findBolus(dtM1);
-            td.timeForDecayCorrection = td.time0;
-            td.decayCorrect;
-            ad = td.activityDensity('index0', td.index0, 'indexF', td.indexF);
-            ad = asrow(ad);
-        end
-        function [cr,td] = countRateForCal(this)
-            %% finds the temporally most proximate Twilite cal data and estimates count rate in counts/s.
-            
-            td = copy(this.twiliteData_);
-            [~,thresholdedIndex] = max(td.countRate() > td.baselineSup);
-            dtM1 = this.radMeasurements_.mMR.scanStartTime_Hh_mm_ss(1);
-            dtM2 = td.datetimeMeasured + seconds(thresholdedIndex - 1);
-            td.findBaseline(dtM2);
-            td.findBolus(dtM1);
-            td.timeForDecayCorrection = td.time0;
-            td.decayCorrect;
-            cr = td.countRate('index0', td.index0, 'indexF', td.indexF);
-            cr = asrow(cr);
-        end
-        function [h1,h2] = plot(this)
-            assert(isa(this.twiliteData_, 'mlswisstrace.TwiliteData'), ...
-                'mlswisstrace:RuntimeError', 'TwiliteCalibration.plot() found faulty this.twiliteData_')
-            td = copy(this.twiliteData_);
-            td.resetTimeLimits;
-            h1 = td.plot();
-            h2 = figure;
-            [ad,td] = this.activityDensityForCal();
-            plot(ad);
-            xlabel('indices')
-            ylabel('activity density / (Bq/mL)')
-            title('mlswisstrace.TwiliteCalibration.plot():this.activityDensityForCal()')
-            text(10, (max(ad) - min(ad))/2, ['sampling start: ' datestr(td.datetime0)])
-        end
-        
-    end
-    
     %% PROTECTED
     
     properties (Access = protected)
@@ -207,11 +217,35 @@ classdef TwiliteCalibration < handle & mlpet.AbstractCalibration
                 % get activity density from Twilite data sources && form efficiency^{-1}
 
                 % branching ratios cancel for this.invEfficiency_
-                
-                this.twiliteData_ = mlswisstrace.TwiliteData.createFromSession(sesd, 'radMeasurements', rm);
-                this.invEfficiency_ = mean(activityDensityCapr)/mean(this.activityDensityForCal());
-                vvol = this.twiliteData_.visibleVolume;
-                this.Bq_over_cps_ = mean(activityDensityCapr)*vvol/mean(this.countRateForCal());
+
+                % prefer rm.twilite.SpecificACtivity_KBq_mL when available
+                if isprop(rm, "twilite") && ...
+                    any(contains(rm.twilite.Properties.VariableNames, "SpecificACtivity_KBq_mL"))
+                    shift = seconds( ...
+                        rm.mMR.scanStartTime_Hh_mm_ss(1) - ...
+                        seconds(rm.clocks.TimeOffsetWrtNTS____s('mMR console')) - ...
+                        rm.twilite.CathPlace_mentTime_Hh_mm_ss(1)); % backwards in time, clock-adjusted
+                    adc = this.shiftWorldLines( ...
+                        1e3*rm.twilite.SpecificACtivity_KBq_mL, shift, this.calibration_halflife);
+                    assert(isnumeric(adc));
+                    crc = 1e3*rm.twilite.SpecificCountRate_Kcps_mL;
+                else
+                    adc = this.activityDensityForCal();
+                    crc = this.countRateForCal();
+                end
+
+                this.twiliteData_ = mlswisstrace.TwiliteData.createFromSession(sesd, ...
+                    'radMeasurements', rm, ...
+                    'fqfnCrv', this.fqfnCrvCal);
+                this.invEfficiency_ = mean(activityDensityCapr)/mean(adc);
+                this.Bq_over_cps_ = mean(adc)/mean(crc);
+
+                S = struct( ...
+                    'radMeasurementsFqfn', rm.fqfn, ...
+                    'invEfficiency', this.invEfficiency_, ...
+                    'Bq_over_cps', this.Bq_over_cps_);
+                sesd.json_metadata.(stackstr()) = S;
+                this.radMeasurements_.sessionData = sesd;
             catch ME
                 
                 % calibration data was inadequate, but proximal session may be useable

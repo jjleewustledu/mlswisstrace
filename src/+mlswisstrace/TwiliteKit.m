@@ -71,10 +71,19 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
             ifc = copy(med.imagingFormat);
             ifc.img = measurement;
             ifc.fqfp = this.device_.new_fqfp();
+            ifc.fileprefix = mlpipeline.Bids.adjust_fileprefix( ...
+                ifc.fileprefix, post_proc=this.model_kind);
+            ifc.filesuffix = ".nii.gz";
+            ifc.json_metadata.Manufacturer = "Swisstrace";
+            ifc.json_metadata.ManufacturersModelName = "Twilite II";
+            ifc.json_metadata.ImageComments = stackstr();
             ifc.json_metadata.taus = this.device_.taus(idx0:idxF);
             ifc.json_metadata.times = this.device_.times(idx0:idxF) - this.device_.times(idx0);
             ifc.json_metadata.timesMid = this.device_.timesMid(idx0:idxF) - this.device_.timesMid(idx0);
             ifc.json_metadata.timeUnit = "second";
+            ifc.json_metadata.datetime0 = this.device_.datetime0;
+            ifc.json_metadata.baselineActivityDensity = this.device_.baselineActivityDensity;
+            ifc.json_metadata.(stackstr()).invEfficiency = this.device_.invEfficiency;
             ic = mlfourd.ImagingContext2(ifc);
             %ic.addJsonMetadata(opts);
             this.input_func_ic_ = ic;
@@ -117,7 +126,7 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
             
             arguments
                 this mlswisstrace.TwiliteKit
-                opts.deconvCatheter logical = true
+                opts.deconvCatheter logical = ~contains(this.model_kind_, "nomodel")
                 opts.sameWorldline logical = false 
                 opts.indexCliff double = []
                 opts.fqfileprefix {mustBeTextScalar} = ""
@@ -140,14 +149,16 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
             input_func_dev.deconvCatheter = opts.deconvCatheter;
             input_func_dev.hct = opts.hct;
             input_func_dev.model_kind = opts.model_kind;
-            input_func_dev = input_func_dev.alignArterialToReference( ...
-                arterialDev=input_func_dev, ...
-                referenceDev=opts.referenceDev, ...
-                sameWorldline=opts.sameWorldline);
-            %input_func_dev.radialArteryKit.saveas( ...
-            %    sprintf("%s_%s_radialArteryKit.mat", med.imagingContext.fqfp, stackstr(3)));
+            if input_func_dev.deconvCatheter
+                input_func_dev = input_func_dev.alignArterialToReference( ...
+                    arterialDev=input_func_dev, ...
+                    referenceDev=opts.referenceDev, ...
+                    sameWorldline=opts.sameWorldline);
+            end
+            %input_func_dev.save();
 
-            if opts.referenceDev.timeWindow > input_func_dev.timeWindow && ...
+            if ~isempty(opts.referenceDev) && ...
+                    opts.referenceDev.timeWindow > input_func_dev.timeWindow && ...
                     contains(med.isotope, '15O')
                 warning('mlsiemens:ValueWarning', ...
                     'scannerDev.timeWindow->%g; arterialDev.timeWindow->%g', ...

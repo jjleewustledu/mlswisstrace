@@ -259,7 +259,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             %
             %  @param pumpRate, default := 5 mL/min.
             %  @param visibleVolume, default := 0.27 mL, default := 0.14 mL for datetime < 20170412.
-            %  @param activityOverCountRate, an initial scaling, has default := 40.
+            %  @param activityOverCountRate, an initial scaling, nominally ~ 46.1475, determined from historical data.
             
             this = this@mlpet.AbstractTracerData(varargin{:});
             
@@ -267,8 +267,9 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             ip.KeepUnmatched = true;
             addParameter(ip, 'pumpRate', 5, @isnumeric)
             addParameter(ip, 'visibleVolume', NaN, @isnumeric)
-            addParameter(ip, 'activityOverCountRate', 40, @isnumeric)
+            addParameter(ip, 'activityOverCountRate', 46.1475, @isnumeric)
             addParameter(ip, 'radMeasurements', [], @(x) isa(x, 'mlpet.RadMeasurements'))
+            addParameter(ip, 'fqfnCrv', '', @istext)
             parse(ip, varargin{:})
             ipr = ip.Results;
             
@@ -280,6 +281,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             if ~isempty(ipr.radMeasurements)
                 this.radMeasurements_ = ipr.radMeasurements;
             end
+            this.fqfnCrv_ = ipr.fqfnCrv;
  		end
     end 
     
@@ -296,7 +298,10 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
                     'datetimeMeasured', sesd.datetime, ...
                     'radMeasurements', rm, ...
                     varargin{:});
-                if contains(lower(sesd.imagingContext.fileprefix), 'phantom')
+                if isfile(this.fqfnCrv_)
+                    this.read(this.fqfnCrv_);
+                elseif contains(lower(sesd.imagingContext.fileprefix), 'phantom') || ...
+                        contains(lower(sesd.imagingContext.fileprefix), 'fdg')
                     fn = sprintf('*fdg_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
                     fqfnCrvs = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite', 'CRV', fn));
                     this.read(fqfnCrvs{1});
@@ -304,12 +309,12 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
                     fn = sprintf('*o15_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
                     fqfnCrvs = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite', 'CRV', fn));
                     this.read(fqfnCrvs{1});
+                end
                     this.findBaseline(this.datetimeMeasured);
                     this.datetimeForDecayCorrection = sesd.datetime;
                     this.timingData_.datetime0 = sesd.datetime;
                     this.findBolus(sesd.datetime);
-                    %this.removeBaselineCountRate();
-                end
+                sesd.json_metadata.(stackstr()).fqfnCrvs = fqfnCrvs{1};
             catch ME
                 handwarning(ME)
             end
@@ -321,6 +326,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
     properties (Access = protected)
         activityOverCountRate_
         baselineCountRate_ % as countRate
+        fqfnCrv_
         pumpRate_
         radMeasurements_
         tableTwilite_
