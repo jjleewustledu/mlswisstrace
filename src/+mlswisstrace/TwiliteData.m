@@ -300,21 +300,23 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
                     varargin{:});
                 if isfile(this.fqfnCrv_)
                     this.read(this.fqfnCrv_);
+                    sesd.json_metadata.(stackstr()).fqfnCrvs = this.fqfnCrv_;
                 elseif contains(lower(sesd.imagingContext.fileprefix), 'phantom') || ...
                         contains(lower(sesd.imagingContext.fileprefix), 'fdg')
                     fn = sprintf('*fdg_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
                     fqfnCrvs = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite', 'CRV', fn));
                     this.read(fqfnCrvs{1});
+                    sesd.json_metadata.(stackstr()).fqfnCrvs = fqfnCrvs{1};
                 else
                     fn = sprintf('*o15_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
                     fqfnCrvs = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite', 'CRV', fn));
                     this.read(fqfnCrvs{1});
+                    sesd.json_metadata.(stackstr()).fqfnCrvs = fqfnCrvs{1};
                 end
-                    this.findBaseline(this.datetimeMeasured);
-                    this.datetimeForDecayCorrection = sesd.datetime;
-                    this.timingData_.datetime0 = sesd.datetime;
-                    this.findBolus(sesd.datetime);
-                sesd.json_metadata.(stackstr()).fqfnCrvs = fqfnCrvs{1};
+                this.findBaseline(this.datetimeMeasured);
+                this.datetimeForDecayCorrection = sesd.datetime;
+                this.timingData_.datetime0 = sesd.datetime;
+                this.findBolus(sesd.datetime);
             catch ME
                 handwarning(ME)
             end
