@@ -126,7 +126,6 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
             
             arguments
                 this mlswisstrace.TwiliteKit
-                opts.deconvCatheter logical = ~contains(this.model_kind_, "nomodel")
                 opts.sameWorldline logical = false 
                 opts.indexCliff double = []
                 opts.fqfileprefix {mustBeTextScalar} = ""
@@ -146,7 +145,7 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
             input_func_dev = mlswisstrace.TwiliteDevice.createFromSession(med);
             input_func_dev.fqfileprefix = opts.fqfileprefix; % hard to manage with TwiliteDevice() inputParser
             input_func_dev.do_close_fig = opts.do_close_fig; % hard to manage with TwiliteDevice() inputParser
-            input_func_dev.deconvCatheter = opts.deconvCatheter;
+            input_func_dev.deconvCatheter = ~contains(opts.model_kind, "nomodel");
             input_func_dev.hct = opts.hct;
             input_func_dev.model_kind = opts.model_kind;
             if input_func_dev.deconvCatheter
@@ -154,6 +153,10 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
                     arterialDev=input_func_dev, ...
                     referenceDev=opts.referenceDev, ...
                     sameWorldline=opts.sameWorldline);
+            else
+                input_func_dev = input_func_dev.setArterialTimingToReference( ...
+                    arterialDev=input_func_dev, ...
+                    referenceDev=opts.referenceDev);
             end
             %input_func_dev.save();
 

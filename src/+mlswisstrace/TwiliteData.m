@@ -343,6 +343,7 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             ip.KeepUnmatched = true;
             ip.PartialMatching= false;
             addParameter(ip, 'datetimeForDecayCorrection', NaT, @(x) isdatetime(x))
+            addParameter(ip, 'doDecayCorrection', false, @islogical)
             addParameter(ip, 'index0', this.index0, @isnumeric)
             addParameter(ip, 'indexF', this.indexF, @isnumeric)
             parse(ip, varargin{:})
@@ -351,6 +352,9 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             if ~isnat(ipr.datetimeForDecayCorrection)
                 this.datetimeForDecayCorrection = ipr.datetimeForDecayCorrection;
             end 
+            if ipr.doDecayCorrection
+                this.decayCorrect();
+            end
             m = asrow(this.tableTwilite_.coincidences);
             m = m(ipr.index0:ipr.indexF);
             m = asrow(m);
