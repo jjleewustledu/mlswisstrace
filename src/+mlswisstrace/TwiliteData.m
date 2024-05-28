@@ -11,7 +11,6 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
         baselineActivityDensity
         baselineCountRate % countRate
         baselineSup
-        pumpRate 
         radMeasurements
         tableTwilite % all stored data
         visibleVolume 
@@ -29,11 +28,6 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
         end
         function g = get.baselineSup(~)
             g = 200;
-        end
-        function g = get.pumpRate(this)
-            %% default := 5 mL/min
-            
-            g = this.pumpRate_;
         end
         function g = get.radMeasurements(this)
             g = this.radMeasurements_;
@@ -94,7 +88,18 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             this.timingData_.times = this.timingData_.timing2num( ...
                 this.tableTwilite_.datetime - this.tableTwilite_.datetime(1));
             this.timingData_.timeF = this.timingData_.times(end);
-        end
+        end    
+        function sec = clocksTimeOffsetWrtNTS(this)
+            try
+                sec = seconds(this.radMeasurements_.clocks.TimeOffsetWrtNTS____s('PMOD workstation'));
+            catch 
+                try
+                    sec = seconds(this.radMeasurements_.clocks.TIMEOFFSETWRTNTS____S('PMOD workstation'));
+                catch
+                    sec = 0;
+                end
+            end
+        end 
         function c = countRate(this, varargin)
             %% cps
             %  decayCorrected logical = false.
@@ -128,32 +133,19 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             this.tableTwilite_.coincidences = ascol(c);
             this.decayCorrected_ = false;
         end
-        function this = findBaseline(this, doseAdminDatetime1st)
-            %% FINDBASELINE infers baselineCountRate from datetimeMeasured to doseAdminDatetime1st,
-            %  but if doseAdminDatetime1st <= datetimeMeasured || countRate('index0', 1, 'indexF', 10) excessively high, 
-            %  infers baselineCountRate from last 60 sec of available Twilite countRate.
+        function this = findBaseline(this, ~)
+            %% FINDBASELINE returns baselineCountRate provided by this.radMeasurments.twilite.TwiliteBaseline_CoincidentCps, which is scalar.
+            %  However, if mean(baselineCountRate) > this.baselineSup, 
+            %      findBaseline estimates baselineCountRate from 
+            %      the first sliding window (10 sec) with mean(baselineCountRate) <= this.baselineSup
             
-            assert(isdatetime(doseAdminDatetime1st) && ~isnat(doseAdminDatetime1st))
-            if this.datetimeMeasured < doseAdminDatetime1st && mean(this.countRate('index0', 1, 'indexF',10)) < this.baselineSup
-                doseAdminIndex1st = round(seconds(doseAdminDatetime1st - this.datetimeMeasured));
-                doseAdminIndex1st = max(doseAdminIndex1st, 1);
-                this.baselineCountRate_ = this.countRate('index0', 1, 'indexF',doseAdminIndex1st);
-            else
-                % infer baselineCountRate from last 60 sec of twiliteTable                
-                idxF = this.timingData_.indexF;
-                this.baselineCountRate_ = this.countRate('index0', idxF-59, 'indexF', idxF);
+            cps = this.radMeasurements.twilite.TwiliteBaseline_CoincidentCps;
+            idx = 1;
+            while mean(cps) > this.baselineSup && idx+10 <= this.timingData_.indexF
+                cps = this.countRate('index0', idx, 'indexF', idx+10);
+                idx = idx + 1;
             end
-            
-            if mean(this.baselineCountRate_) > 300
-                cps = this.radMeasurements.twilite.TwiliteBaseline_CoincidentCps;
-                if isnumeric(cps)
-                    this.baselineCountRate_ = cps;
-                else
-                    error('mlswisstrace:ValueError', ...
-                        'TwiliteData.findBaseline.baselineCountRate_->%g', ...
-                        this.baselineCountRate_);
-                end
-            end
+            this.baselineCountRate_ = cps;
         end
         function this = findBolus(this, doseAdminDatetime)
             %% FINDBOLUS finds start and termination of bolus; this.index0 := start; this.indexF := termination.
@@ -162,33 +154,35 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
             %  |bbbb        |  bbbb      |    bbbb    |bbbbbbbb    |.  .. .
             %  ---------    ---------    ---------    ---------    ---------  
             
-            assert(isdatetime(doseAdminDatetime) && ~isnat(doseAdminDatetime))
-            doseAdminIndex = round(seconds(doseAdminDatetime - this.datetimeMeasured));
-            doseAdminIndex = max(doseAdminIndex, 1);
+            doseAdminIndex = max(round(seconds(doseAdminDatetime - this.datetimeMeasured)), 1);
             terminationIndex = min(doseAdminIndex + 600, length(this.times));
-            thresh = mean(this.baselineCountRate) + 6*std(this.baselineCountRate);
+            bcr = this.baselineCountRate; % vec or scalar
+            thresh = mean(bcr) + 6*std(bcr); 
             
-            % find index just prior to bolus inflow
+            % find index0 just prior to bolus inflow
             idx0 = 1;
             while idx0 == 1 && doseAdminIndex > 1                
                 % manage bolus that started prior to start of data
-                doseAdminIndex = doseAdminIndex - 1;
-                [~,idx0] = max(this.countRate('index0', doseAdminIndex, 'indexF',terminationIndex) > thresh);                
+                % idx0 <- index of the earliest observed activity > thresh;
+                % idx0 > 1 once the observations extend earlier than the start of bolus peak
+                [~,idx0] = max(this.countRate('index0', doseAdminIndex, 'indexF',terminationIndex) > thresh);  
+                doseAdminIndex = doseAdminIndex - 1;              
             end
             this.index0 = doseAdminIndex + idx0 - 1;
             
             % find index of bolus peak
             [~,idxPeak] = max(this.countRate('index0', this.index0, 'indexF', terminationIndex));
             
-            % find index just after bolus terminates
-            [~,idxF] = max(this.countRate('index0', this.index0+idxPeak, 'indexF', this.indexF) < mean(this.baselineCountRate));
-            this.indexF = this.index0 + idxPeak + idxF - 1;
-            if idxF == 1 && this.indexF < this.indices(end)                
-                % manage bolus that persists to end of data
+            % find indexF just after bolus terminates
+            [~,idxF] = max(this.countRate('index0', this.index0+idxPeak, 'indexF', this.indexF) < thresh);
+            this.indexF = this.index0 + idxPeak + idxF - 2;
+            
+            % manage bolus that persists to end of data
+            if idxF == 1 && this.indexF < this.indices(end)    
                 this.indexF = this.indices(end);
             end
             
-            assert(this.indexF > this.index0, 'mlswisstrace:ValueError', 'TwiliteData.findBolus()')
+            assert(this.indexF > this.index0, 'mlswisstrace:ValueError', stackstr())
         end
         function this = read(this, varargin)
             %% updates datetimeMeasured and timingData_.times
@@ -207,10 +201,6 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
                 'FileType', 'text', 'ReadVariableNames', false, 'ReadRowNames', false);            
             dt = datetime(tbl.Var1, tbl.Var2, tbl.Var3, tbl.Var4, tbl.Var5, tbl.Var6, ...
                 'TimeZone', mlpipeline.ResourcesRegistry.instance().preferredTimeZone);
-            offset = this.radMeasurements.clocks{'PMOD workstation', 'TimeOffsetWrtNTS____s'};
-            if offset ~= 0
-                dt = dt - seconds(offset);
-            end
             coin = tbl.Var7;
             if length(tbl.Properties.VariableNames) >= 9
                 ch1 = tbl.Var8;
@@ -257,69 +247,103 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
  			%  @param timeF <= this.times(end).
  			%  @param times are frame starts.
             %
-            %  @param pumpRate, default := 5 mL/min.
             %  @param visibleVolume, default := 0.27 mL, default := 0.14 mL for datetime < 20170412.
             %  @param activityOverCountRate, an initial scaling, nominally ~ 46.1475, determined from historical data.
             
-            this = this@mlpet.AbstractTracerData(varargin{:});
+            this = this@mlpet.AbstractTracerData(varargin{:}, decayCorrected = false);
             
             ip = inputParser;
             ip.KeepUnmatched = true;
-            addParameter(ip, 'pumpRate', 5, @isnumeric)
             addParameter(ip, 'visibleVolume', NaN, @isnumeric)
             addParameter(ip, 'activityOverCountRate', 46.1475, @isnumeric)
-            addParameter(ip, 'radMeasurements', [], @(x) isa(x, 'mlpet.RadMeasurements'))
             addParameter(ip, 'fqfnCrv', '', @istext)
             parse(ip, varargin{:})
             ipr = ip.Results;
             
-            this.decayCorrected_ = false;
-            
-            this.pumpRate_ = ipr.pumpRate;
             this.visibleVolume_ = ipr.visibleVolume;
             this.activityOverCountRate_ = ipr.activityOverCountRate;
-            if ~isempty(ipr.radMeasurements)
-                this.radMeasurements_ = ipr.radMeasurements;
-            end
             this.fqfnCrv_ = ipr.fqfnCrv;
  		end
     end 
     
     methods (Static)
         function this = createFromSession(sesd, varargin)
-            this = [];
-            assert(isa(sesd, 'mlpipeline.ISessionData') || isa(sesd, 'mlpipeline.ImagingMediator'))
-            
-            try
-                rm = mlpet.CCIRRadMeasurements.createFromSession(sesd);
-                this = mlswisstrace.TwiliteData( ...
-                    'isotope', sesd.isotope, ...
-                    'tracer', sesd.tracer, ...
-                    'datetimeMeasured', sesd.datetime, ...
-                    'radMeasurements', rm, ...
-                    varargin{:});
-                if isfile(this.fqfnCrv_)
-                    this.read(this.fqfnCrv_);
-                    sesd.json_metadata.(stackstr()).fqfnCrvs = this.fqfnCrv_;
-                elseif contains(lower(sesd.imagingContext.fileprefix), 'phantom') || ...
-                        contains(lower(sesd.imagingContext.fileprefix), 'fdg')
-                    fn = sprintf('*fdg_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
-                    fqfnCrvs = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite', 'CRV', fn));
-                    this.read(fqfnCrvs{1});
-                    sesd.json_metadata.(stackstr()).fqfnCrvs = fqfnCrvs{1};
-                else
-                    fn = sprintf('*o15_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
-                    fqfnCrvs = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite', 'CRV', fn));
-                    this.read(fqfnCrvs{1});
-                    sesd.json_metadata.(stackstr()).fqfnCrvs = fqfnCrvs{1};
-                end
-                this.findBaseline(this.datetimeMeasured);
-                this.datetimeForDecayCorrection = sesd.datetime;
-                this.timingData_.datetime0 = sesd.datetime;
-                this.findBolus(sesd.datetime);
-            catch ME
-                handwarning(ME)
+            % opts.model_kind ~ "nocrop" keeps TwiliteData as found by
+            % TwiliteData.findBoluses().
+
+            ip = inputParser;
+            ip.KeepUnmatched = true;
+            %addRequired(ip, 'sesd', @(x) isa(x, 'mlpipeline.ISessionData') || isa(x, 'mlpipeline.ImagingMediator'))
+            addParameter(ip, 'fqfnCrv', '', @istext)
+            addParameter(ip, 'model_kind', '', @istext)
+            parse(ip, varargin{:})
+            ipr = ip.Results;
+
+            rm = mlpet.CCIRRadMeasurements.createFromSession(sesd);
+            clocksTimeOffsetWrtNTS = rm.clocks.TimeOffsetWrtNTS____s('mMR console');
+            scanner_datetime = sesd.datetime - seconds(clocksTimeOffsetWrtNTS);
+            if isfile(ipr.fqfnCrv)
+                T = mlswisstrace.TwiliteData.static_read(ipr.fqfnCrv);
+                sesd.json_metadata.(stackstr()).fqfnCrvs = ipr.fqfnCrv;
+            elseif contains(lower(sesd.imagingContext.fileprefix), 'phantom') 
+                fn = sprintf('*fdg5min_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
+                fqfnCrvs = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite', 'CRV', fn));
+                T = mlswisstrace.TwiliteData.static_read(fqfnCrvs{1});
+                sesd.json_metadata.(stackstr()).fqfnCrvs = fqfnCrvs{1};
+                ipr.fqfnCrv = fqfnCrvs{1};
+            elseif contains(lower(sesd.imagingContext.fileprefix), 'fdg')
+                fn = sprintf('*fdg_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
+                fqfnCrvs = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite', 'CRV', fn));
+                T = mlswisstrace.TwiliteData.static_read(fqfnCrvs{1});
+                sesd.json_metadata.(stackstr()).fqfnCrvs = fqfnCrvs{1};
+                ipr.fqfnCrv = fqfnCrvs{1};
+            else
+                fn = sprintf('*o15_dt%s.crv', datestr(sesd.datetime, 'yyyymmdd'));
+                fqfnCrvs = globT(fullfile(getenv('CCIR_RAD_MEASUREMENTS_DIR'), 'Twilite', 'CRV', fn));
+                T = mlswisstrace.TwiliteData.static_read(fqfnCrvs{1});
+                sesd.json_metadata.(stackstr()).fqfnCrvs = fqfnCrvs{1};
+                ipr.fqfnCrv = fqfnCrvs{1};
             end
+            times = seconds(T.datetime - T.datetime(1));
+            this = mlswisstrace.TwiliteData( ...
+                'radMeasurements', rm, ...
+                'isotope', sesd.isotope, ...
+                'tracer', sesd.tracer, ...
+                'datetimeMeasured', T.datetime(1), ...
+                'decayCorrected', false, ...
+                'dt', 1, ...
+                'times', times, ...
+                'datetimeForDecayCorrection', scanner_datetime, ...
+                'fqfnCrv', ipr.fqfnCrv, ...
+                varargin{:});
+            this.tableTwilite_ = T;
+            this.findBaseline(this.datetimeMeasured);
+            this.findBolus(scanner_datetime); % find beginning and end
+            if ~contains(ipr.model_kind, 'nocrop')
+                this.timingData_.datetime0 = scanner_datetime;
+            end
+        end        
+        function T = static_read(fqfnCrv)
+            %  Return:  T ~ this.tableTwilite_
+            
+            arguments
+                fqfnCrv {mustBeFile}
+            end
+
+            tbl = readtable(fqfnCrv, ...
+                'FileType', 'text', 'ReadVariableNames', false, 'ReadRowNames', false);            
+            dt = datetime(tbl.Var1, tbl.Var2, tbl.Var3, tbl.Var4, tbl.Var5, tbl.Var6, ...
+                'TimeZone', mlpipeline.ResourcesRegistry.instance().preferredTimeZone);
+            coin = tbl.Var7;
+            if length(tbl.Properties.VariableNames) >= 9
+                ch1 = tbl.Var8;
+                ch2 = tbl.Var9;
+            else
+                ch1 = nan(size(coin));
+                ch2 = nan(size(coin));
+            end            
+            T = table(dt, coin, ch1, ch2, ...
+                'VariableNames', {'datetime' 'coincidences' 'channel1' 'channel2'});
         end
     end
     
@@ -329,8 +353,6 @@ classdef TwiliteData < handle & mlpet.AbstractTracerData
         activityOverCountRate_
         baselineCountRate_ % as countRate
         fqfnCrv_
-        pumpRate_
-        radMeasurements_
         tableTwilite_
         visibleVolume_
     end

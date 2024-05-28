@@ -112,34 +112,92 @@ classdef Catheter_DT20190930 < handle
 
 
 
-
-
         end
-        function [q,r] = deconv(this, varargin)
-            k = this.kernel;
-            M = smoothdata(this.Measurement, 'sgolay', this.sgolayWindow1);
-            
+        function q = deconv1(this, opts)
+            arguments
+                this mlswisstrace.Catheter_DT20190930
+                opts.is_dc logical = true
+            end
+
+            M = double(this.Measurement);
+            N4 = floor(length(M)/4);
+
+            if opts.is_dc % un-decay-correct
+                M = M .* 2.^(-this.timeInterpolants/this.halflife);
+            end
+
+            nsr = var(M(end-N4:end)) / var(M(1:N4));
+            q = deconvwnr(M, this.kernel, nsr);
+            q = shiftq(q);
+
+            if opts.is_dc % decay-correct again
+               q = q .* 2.^(this.timeInterpolants/this.halflife);
+            end
+
+            function q1 = shiftq(q)
+                N = length(q);
+                q1 = NaN(size(q));
+                if 0 == mod(N, 2)
+                    q1(1:N/2) = q(N/2:end);
+                    q1(N/2+1:end) = q(1:N/2);
+                else
+                    Nsplit = floor(N/2);
+                    q1(1:Nsplit) = q(Nsplit+2:end);
+                    q1(Nsplit+1:end) = q(1:Nsplit+1);
+                end
+            end
+        end
+        function q = deconv(this, varargin)           
             ip = inputParser;
             ip.KeepUnmatched = true;
-            addParameter(ip, 'Fourier', true, @islogical)
-            addParameter(ip, 'N', 8192, @isnumeric)
+            addParameter(ip, 'N', 4096, @isnumeric)
+            addParameter(ip, 'is_dc', true, @islogical) % this.Measurement is decay-corrected
+            addParameter(ip, 'fpass', 0.03125, @isnumeric)
+            addParameter(ip, 'method', 'movmedian', @istext) % for pre-filtering
+            addParameter(ip, 'width', 32, @isnumeric) % for pre-filtering
+            addParameter(ip, 'method2', '', @istext) % for post-filtering
+            addParameter(ip, 'width2', 16, @isnumeric) % for post-filtering
             parse(ip, varargin{:})
             ipr = ip.Results;
-            
-            if ipr.Fourier
-                q = ifft(fft(M, ipr.N) ./ fft(k, ipr.N));
-                q = q(1:min(length(this.timeInterpolants), ipr.N));
-                q = smoothdata(q, 'sgolay', this.sgolayWindow2);
-                q(q < 0) = 0;
-                r = [];
-                return
-            end            
-            [q,r] = deconv(M, k);
-            q = q(1:length(this.timeInterpolants));
-            q(q < 0) = 0;
 
-            %% REFACTOR?
-            q = this.scalingWorldline*q;  
+            M = this.Measurement;
+            while N < 2*length(M)
+                N = 2*N;
+            end
+
+            %% pre-filter
+            if ipr.is_dc % un-decay-correct
+                M = M .* 2.^(-this.timeInterpolants/this.halflife);
+            end
+            if ipr.fpass > 0
+                M = lowpass(M, ipr.fpass, 1, ImpulseResponse="iir", Steepness=0.95);
+            end
+            if ~isemptytext(ipr.method)
+                M = smoothdata(M, ipr.method, ipr.width); % filter
+            end
+            if ipr.is_dc % decay-correct again
+                M = M .* 2.^(this.timeInterpolants/this.halflife);
+            end
+            
+            %% deconv; https://en.wikipedia.org/wiki/Wiener_deconvolution
+            N4 = floor(length(M)/4);
+            snr = var(M(1:N4))/var(M(end-N4:end));
+            k = this.kernel;
+            H = fft(k, ipr.N); % kernel spectrum
+            Y = fft(M, ipr.N);
+            G = 1 ./ (H + 1 ./ (H*snr)); % wiener filter/spectrum
+            q = ifft(Y .* G);
+            q = real(q);
+            q = q(1:min(length(this.timeInterpolants), ipr.N));
+
+            %% post-filter
+            if ~isemptytext(ipr.method2)
+                q = smoothdata(q, ipr.method2, ipr.width2);
+            end
+
+            %% tidying
+            q(q < 0) = 0;            
+            q = this.scalingWorldline*q; % using t0 from kernel
         end
         function q = deconvBayes(this, varargin)
             k = this.kernel(varargin{:}); % length(k) >= length(this.Measurement)

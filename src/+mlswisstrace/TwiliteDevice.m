@@ -20,11 +20,12 @@ classdef TwiliteDevice < handle & mlpet.InputFuncDevice
         invEfficiency
         isWholeBlood
         model_kind
+        pumpRate 
         radialArteryKit
         t0_forced
     end
 
-	methods % GET/SET        
+	methods % GET/SET 
         function g = get.baselineActivity(this)
             g = this.data_.baselineActivity;
         end
@@ -89,6 +90,11 @@ classdef TwiliteDevice < handle & mlpet.InputFuncDevice
         function     set.model_kind(this, s)
             assert(istext(s))
             this.catheter_.model_kind = s;
+        end
+        function g = get.pumpRate(this)
+            %% default := 5 mL/min
+            
+            g = this.pumpRate_;
         end
         function g = get.radialArteryKit(this)
             g = this.catheter_.radialArteryKit;
@@ -166,9 +172,10 @@ classdef TwiliteDevice < handle & mlpet.InputFuncDevice
     methods (Static)
         function this = createFromSession(sesd, varargin)
             rm = mlpet.CCIRRadMeasurements.createFromSession(sesd, varargin{:});
-            data = mlswisstrace.TwiliteData.createFromSession(sesd, 'visibleVolume', rm.twilite.VISIBLEVolume_ML, varargin{:});
-            Dt = 2*ceil(mlswisstrace.Catheter_DT20190930.t0); % provide room for delay corrections
-            data.time0 = max(data.time0 - Dt, 0);
+            data = mlswisstrace.TwiliteData.createFromSession( ...
+                sesd, 'visibleVolume', rm.twilite.VISIBLEVolume_ML, varargin{:});
+            %Dt = 2*ceil(mlswisstrace.Catheter_DT20190930.t0); % provide room for delay corrections
+            %data.time0 = max(data.time0 - Dt, 0);
             hct = rm.laboratory{'Hct',1};
             if iscell(hct)
                 hct = hct{1};
@@ -211,7 +218,10 @@ classdef TwiliteDevice < handle & mlpet.InputFuncDevice
                 return
             end
             if isa(sesd0, 'mlpipeline.ImagingMediator')
-                scans = glob(fullfile(sesd0.subjectPath, '**', 'sub-*_ses-*_trc-fdg_proc-static-phantom*_pet.nii.gz'))';
+                scans = glob(fullfile(strcat(sesd0.subjectPath, '-phantom'), '**', 'sub-*_ses-*_trc-fdg_*Static*.nii.gz'))';
+                if isempty(scans)
+                    scans = glob(fullfile(sesd0.subjectPath, '**', 'sub-*_ses-*_trc-fdg_proc-static-phantom*_pet.nii.gz'))';
+                end
                 if isempty(scans)
                     scans = glob(fullfile(sesd0.subjectPath, '**', 'sub-*_ses-*_trc-fdg_proc-delay0-BrainMoCo2-createNiftiStatic-phantom.nii.gz')); 
                     % e.g.: sub-108250_ses-20221207120651_trc-fdg_proc-delay0-BrainMoCo2-createNiftiStatic-phantom.nii.gz
@@ -225,7 +235,7 @@ classdef TwiliteDevice < handle & mlpet.InputFuncDevice
                 if isempty(scans)
                     scans = glob(fullfile(sesd0.subjectPath, '**', 'sub-*_ses-*_FDG_Static*.nii.gz'));
                 end
-                sesd = sesd0.create(scans{end}); 
+                sesd = sesd0.create(scans{1}); 
                 return
             end
             error('mlpet:RuntimeError', stackstr())
@@ -244,6 +254,7 @@ classdef TwiliteDevice < handle & mlpet.InputFuncDevice
         deconvCatheter_
         Dt_
         invEfficiency_
+        pumpRate_
         t0_forced_
     end
     
@@ -258,6 +269,7 @@ classdef TwiliteDevice < handle & mlpet.InputFuncDevice
             addParameter(ip, 'fqfileprefix', '', @istext);
             addParameter(ip, 'do_close_fig', false, @islogical);
             addParameter(ip, 'model_kind', '3bolus', @istext);
+            addParameter(ip, 'pumpRate', 5, @isnumeric)
             parse(ip, varargin{:});
             ipr = ip.Results;
             
@@ -275,6 +287,7 @@ classdef TwiliteDevice < handle & mlpet.InputFuncDevice
             this.deconvCatheter_ = ipr.deconvCatheter;
             this.t0_forced_ = ipr.t0_forced;
             this.activityDensityCached_ = [];
+            this.pumpRate_ = ipr.pumpRate;
  		end
     end
     

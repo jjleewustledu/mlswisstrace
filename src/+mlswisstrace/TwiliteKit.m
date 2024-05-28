@@ -78,10 +78,11 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
             ifc.json_metadata.ManufacturersModelName = "Twilite II";
             ifc.json_metadata.ImageComments = stackstr();
             ifc.json_metadata.taus = this.device_.taus(idx0:idxF);
-            ifc.json_metadata.times = this.device_.times(idx0:idxF) - this.device_.times(idx0);
-            ifc.json_metadata.timesMid = this.device_.timesMid(idx0:idxF) - this.device_.timesMid(idx0);
+            ifc.json_metadata.times = this.device_.times(idx0:idxF) - this.device_.timeForDecayCorrection;
+            ifc.json_metadata.timesMid = this.device_.timesMid(idx0:idxF) - this.device_.timeForDecayCorrection + this.device_.taus(1)/2;
             ifc.json_metadata.timeUnit = "second";
             ifc.json_metadata.datetime0 = this.device_.datetime0;
+            ifc.json_metadata.datetimeForDecayCorrection = this.device_.datetimeForDecayCorrection;
             ifc.json_metadata.baselineActivityDensity = this.device_.baselineActivityDensity;
             ifc.json_metadata.(stackstr()).invEfficiency = this.device_.invEfficiency;
             ic = mlfourd.ImagingContext2(ifc);
@@ -122,7 +123,10 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
 
     methods (Access = private)
         function input_func_dev = buildArterialSamplingDevice(this, opts)
-            % sameWorldline prevent shifting worldline of input func. to reference time series
+            % sameWorldline prevent shifting worldline of input func. to
+            % reference time series.
+            % opts.model_kind ~ "nocrop" keeps TwiliteData as found by
+            % TwiliteData.findBoluses().
             
             arguments
                 this mlswisstrace.TwiliteKit
@@ -132,7 +136,7 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
                 opts.do_close_fig logical = false
                 opts.referenceDev = this.referenceDev_
                 opts.hct = this.hct_
-                opts.model_kind = this.model_kind_
+                opts.model_kind = this.input_func_tags_ %% REFACTOR model_kind -> input_func_tags
             end
             med = this.bids_kit_.make_bids_med();
             if isemptytext(opts.fqfileprefix)
@@ -142,7 +146,7 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
                 opts.fqfileprefix = fullfile(pth, fp);
             end
             
-            input_func_dev = mlswisstrace.TwiliteDevice.createFromSession(med);
+            input_func_dev = mlswisstrace.TwiliteDevice.createFromSession(med, model_kind=opts.model_kind);
             input_func_dev.fqfileprefix = opts.fqfileprefix; % hard to manage with TwiliteDevice() inputParser
             input_func_dev.do_close_fig = opts.do_close_fig; % hard to manage with TwiliteDevice() inputParser
             input_func_dev.deconvCatheter = ~contains(opts.model_kind, "nomodel");
@@ -153,8 +157,8 @@ classdef (Sealed) TwiliteKit < handle & mlkinetics.InputFuncKit
                     arterialDev=input_func_dev, ...
                     referenceDev=opts.referenceDev, ...
                     sameWorldline=opts.sameWorldline);
-            else
-                input_func_dev = input_func_dev.setArterialTimingToReference( ...
+            elseif ~contains(opts.model_kind, "nocrop")
+                input_func_dev = input_func_dev.setArterialTimingByReference( ...
                     arterialDev=input_func_dev, ...
                     referenceDev=opts.referenceDev);
             end

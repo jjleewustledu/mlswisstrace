@@ -51,7 +51,7 @@ classdef Test_TwiliteData < matlab.unittest.TestCase
             this.verifyClass(o, 'mlswisstrace.TwiliteData');
             disp(o)
             
-            this.verifyEqual(o.pumpRate, 5)
+            %this.verifyEqual(o.pumpRate, 5)
             this.verifyEqual(o.tableTwilite{1,'datetime'}, datetime(2019,5,23,13,13,30.804, 'TimeZone', 'America/Chicago'))
             this.verifyEqual(o.tableTwilite{1,'coincidences'}, 88)
             this.verifyEqual(o.tableTwilite{1,'channel1'}, 1153)
