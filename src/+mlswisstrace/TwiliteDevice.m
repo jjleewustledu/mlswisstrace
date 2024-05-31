@@ -268,7 +268,7 @@ classdef TwiliteDevice < handle & mlpet.InputFuncDevice
             addParameter(ip, 't0_forced', [], @isnumeric);
             addParameter(ip, 'fqfileprefix', '', @istext);
             addParameter(ip, 'do_close_fig', false, @islogical);
-            addParameter(ip, 'model_kind', '3bolus', @istext);
+            addParameter(ip, 'model_kind', '2bolus', @istext);
             addParameter(ip, 'pumpRate', 5, @isnumeric)
             parse(ip, varargin{:});
             ipr = ip.Results;

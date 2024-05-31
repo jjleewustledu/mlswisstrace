@@ -199,8 +199,14 @@ classdef Catheter_DT20190930 < handle
             q(q < 0) = 0;            
             q = this.scalingWorldline*q; % using t0 from kernel
         end
-        function q = deconvBayes(this, varargin)
-            k = this.kernel(varargin{:}); % length(k) >= length(this.Measurement)
+        function q = deconvBayes(this, opts)
+            arguments
+                this mlswisstrace.Catheter_DT20190930
+                opts.t0_forced {mustBeNumeric} = []
+                opts.xlim
+            end
+
+            k = this.kernel(); % length(k) >= length(this.Measurement)
 
             % proposed
             ic = mlfourd.ImagingContext2(asrow(this.Measurement));
@@ -211,6 +217,7 @@ classdef Catheter_DT20190930 < handle
                 artery=ic, ...
                 kernel=k, ...
                 model_kind=this.model_kind, ...
+                t0_forced=opts.t0_forced, ...
                 tracer=this.tracer, ...
                 scalingWorldline=this.scalingWorldline);
             ral.build_solution();

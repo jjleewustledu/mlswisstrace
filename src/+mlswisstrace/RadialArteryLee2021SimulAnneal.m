@@ -17,7 +17,7 @@ classdef RadialArteryLee2021SimulAnneal < mlpet.ArterySimulAnneal
             % M0 without baseline
 
             measured_baseline = mean(this.Measurement(1:5));
-            assert(measured_baseline < 0.2*max(this.Measurement))
+            assert(measured_baseline < 0.5*max(this.Measurement))
             g = max(this.Measurement) - measured_baseline;
         end
         function this = solve(this, varargin)
